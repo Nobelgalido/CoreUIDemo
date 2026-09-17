@@ -28,6 +28,8 @@ namespace CoreUIDemo
             bundles.Add(new ScriptBundle("~/bundles/coreui").Include(
                       "~/Content/vendor/coreui/js/coreui.bundle.min.js"));
 
+            
+
             // AngularJS core + growl
             bundles.Add(new ScriptBundle("~/bundles/angular").Include(
                       "~/Scripts/angular.js",
@@ -48,7 +50,7 @@ namespace CoreUIDemo
             // build error and nothing in the server log. Keep every bundle path under
             // ~/bundles/ and the collision can never happen.
             bundles.Add(new StyleBundle("~/bundles/css").Include(
-                      "~/Content/*.css"));
+                      "~/Content/.css"));
 
             // Separate bundle for angular-growl's own CSS (same ~/bundles/ rule)
             bundles.Add(new StyleBundle("~/bundles/growl-css").Include(
