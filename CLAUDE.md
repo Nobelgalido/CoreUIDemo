@@ -15,7 +15,12 @@ The four documents below are the source of truth and must be updated **in the sa
 
 A `Stop` hook (`.claude/hooks/docs-sync.sh`) blocks the end of a turn if source files changed this session and none of these docs did. When that fires, reconcile the docs, or state explicitly why no doc change is needed and add a one-line note to the relevant doc.
 
+## Git: the user commits, not Claude
+
+- **Never run `git commit`, `git push`, `git add`, `git reset` or any history-changing command** in this repo unless the user explicitly asks for that exact action in the current message. This includes commits that a skill or plan says to make (design specs, plan files, checkpoints).
+- When work reaches a checkpoint named in `docs/BUILD_GUIDE.md`, stop and tell the user: which files changed, and the checkpoint's commit message, so they can commit it themselves.
+- Read-only git (`status`, `diff`, `log`) is fine.
+
 ## Conventions
 
 - Mirror OneMasaito's idioms: static services, `out string message`, sequential `if` validation with growl, `UniversalHelpers.CurrentUser` checks on GET view actions only.
-- Commit at the checkpoints named in `docs/BUILD_GUIDE.md`.
