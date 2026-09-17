@@ -14,7 +14,7 @@ namespace CoreUIDemo.Services
         UserListItemViewModel GetUserById(long userId);
         void CreateUser(UserCreateViewModel model);
         void UpdateUser(UserEditViewModel model);
-        void DeleteUser(long userId);
+        void DeleteUser(long userId, long actingUserId);
 
         AuthenticatedUserData ValidateCredentials(string username, string password);
 

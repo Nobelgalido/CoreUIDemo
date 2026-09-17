@@ -132,6 +132,7 @@
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
+    <Compile Include="Models\AuthenticatedUserData.cs" />
     <Compile Include="Models\LoginDemoEntities.Context.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
@@ -150,10 +151,17 @@
     <Compile Include="Models\USERS_ACCOUNTS.cs">
       <DependentUpon>LoginDemoEntities.tt</DependentUpon>
     </Compile>
+    <Compile Include="Models\ViewModels\LoginViewModel.cs" />
+    <Compile Include="Models\ViewModels\UserChangePasswordViewModel.cs" />
+    <Compile Include="Models\ViewModels\UserCreateViewModel.cs" />
+    <Compile Include="Models\ViewModels\UserEditViewModel.cs" />
+    <Compile Include="Models\ViewModels\UserListItemViewModel.cs" />
     <Compile Include="Models\vw_Users.cs">
       <DependentUpon>LoginDemoEntities.tt</DependentUpon>
     </Compile>
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Services\IUserService.cs" />
+    <Compile Include="Services\Userservice.cs" />
   </ItemGroup>
   <ItemGroup>
     <Content Include=".gitignore" />
@@ -228,7 +236,6 @@
   <ItemGroup>
     <Folder Include="App_Data\" />
     <Folder Include="Helpers\" />
-    <Folder Include="Services\" />
   </ItemGroup>
   <ItemGroup>
     <Content Include="Content\bootstrap.rtl.min.css.map" />

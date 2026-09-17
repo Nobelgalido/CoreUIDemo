@@ -6,6 +6,7 @@ using CoreUIDemo.Models;
 using System.Web.Mvc;
 using CoreUIDemo.Models.ViewModels;
 using System.Data.Entity;
+using CoreUIDemo.Services;
 
 
 namespace CoreUIDemo.Services
@@ -86,11 +87,14 @@ namespace CoreUIDemo.Services
             }
         }
 
-        public void DeleteUser(long userId)
+        public void DeleteUser(long userId, long actingUserId)
         {
+            if (userId == actingUserId)
+                throw new InvalidOperationException("You cannot deactivate your own account.");
+
             using (var db = new loginDemoEntities())
             {
-                db.sp_DeleteUser((int)userId);
+                db.sp_DeleteUser((int)userId, (int) actingUserId);
             }
         }
 
@@ -125,7 +129,7 @@ namespace CoreUIDemo.Services
             using (var db = new loginDemoEntities())
             {
                 // Maps to sp_UpdateUserPassword — throws (RAISERROR) if CurrentPassword doesn't match.
-                db.sp_UpdateUserPassword((int)model.UserId, model.CurrentPassword, model.NewPassword);
+                db.sp_UpdateUserPassword((int)model.UserId, model.CurrentPassword, model.NewPassword, model.ConfirmPassword);
             }
         }
 
