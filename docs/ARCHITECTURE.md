@@ -67,6 +67,8 @@ No `Areas/`, no DI container, no interfaces, no ViewModels folder, no test proje
    - `new FormsAuthenticationTicket(1, username, now, now + 30 min, isPersistent: true, json)` → `FormsAuthentication.Encrypt` → `Response.Cookies.Add(new HttpCookie(".ASPXAUTH", encrypted))`.
 5. Controller returns `{ errorMessage: "" }` → `Login.js` sets `window.location.href = "/Home/Index"`; non-empty → growl.
 
+Logout is the reverse in one step: the header's Logout item opens `#logoutModal`, its confirm button calls `mainController.Logout()` → `POST /Home/Logout` → `AccountService.LogoutFromSession` → `FormsAuthentication.SignOut()` (expires the cookie) → `""` → the browser navigates to `/Home/Login`.
+
 ### 3.2 Every authenticated page
 
 1. `HomeController.Index()` / `SettingsController.UserAccounts()` read `UniversalHelpers.CurrentUser`; `null` → `RedirectToRoute(Home/Login)`; else `View()`.
