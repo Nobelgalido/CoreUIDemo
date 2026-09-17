@@ -1,0 +1,19 @@
+# Build results
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio files
+.vs/
+*.user
+*.suo
+
+# NuGet
+packages/
+*.nupkg
+
+# Local secrets (see § 3 / § 1.5 connection string)
+Web.ConnectionStrings.config
+
+# OS files
+.DS_Store
+Thumbs.db
