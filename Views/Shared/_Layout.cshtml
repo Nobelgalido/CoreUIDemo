@@ -1,39 +1,136 @@
 ﻿<!DOCTYPE html>
-<html>
+<html ng-app="app">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@ViewBag.Title - My ASP.NET Application</title>
-    @Styles.Render("~/Content/css")
+    <title>@ViewBag.Title - CoreUIDemo</title>
+    @Styles.Render("~/bundles/css")
+    @Styles.Render("~/bundles/growl-css")
     @Scripts.Render("~/bundles/modernizr")
+    @* color-modes.js belongs HERE and nowhere else — in <head>, before first paint, and
+       NOT also inside ~/bundles/coreui at the bottom of the page. Loading it twice runs
+       its init twice against the same localStorage key and re-fires its theme listeners. *@
+    <script src="~/Content/vendor/coreui/js/color-modes.js"></script>
 </head>
 <body>
-    <nav class="navbar navbar-expand-sm navbar-toggleable-sm navbar-dark bg-dark">
-        <div class="container">
-            @Html.ActionLink("Application name", "Index", "Home", new { area = "" }, new { @class = "navbar-brand" })
-            <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" title="Toggle navigation" aria-controls="navbarSupportedContent"
-                    aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse d-sm-inline-flex justify-content-between">
-                <ul class="navbar-nav flex-grow-1">
-                    <li>@Html.ActionLink("Home", "Index", "Home", new { area = "" }, new { @class = "nav-link" })</li>
-                    <li>@Html.ActionLink("About", "About", "Home", new { area = "" }, new { @class = "nav-link" })</li>
-                    <li>@Html.ActionLink("Contact", "Contact", "Home", new { area = "" }, new { @class = "nav-link" })</li>
+    <div ng-controller="MainController as main" ng-init="Init()">
+        <div class="d-flex justify-content-center align-items-center vh-100" ng-hide="main.ItemLoad">
+            <div class="loader"></div>
+        </div>
+        <div ng-show="main.ItemLoad">
+            <div growl class="fading"></div>
+
+            <!-- Sidebar — trimmed to the Users module only, this app has no other modules in scope -->
+            <div class="sidebar sidebar-dark sidebar-fixed border-end" id="sidebar">
+                <div class="sidebar-header border-bottom">
+                    <div class="sidebar-brand">CoreUIDemo</div>
+                </div>
+                <ul class="sidebar-nav" data-coreui="navigation">
+                    <li class="nav-item" ng-show="main.CurrentUser.Role === 'admin'">
+                        <a class="nav-link" href="@Url.Action("Index", "Users")">
+                            <i class="cil-user nav-icon"></i> Users
+                        </a>
+                    </li>
                 </ul>
             </div>
+            <!-- End of Sidebar -->
+
+            <div class="wrapper d-flex flex-column min-vh-100">
+                <!-- Header -->
+                <header class="header header-sticky p-0 mb-4">
+                    <div class="container-fluid border-bottom px-4">
+                        <button class="header-toggler" type="button"
+                                onclick="coreui.Sidebar.getInstance(document.querySelector('#sidebar')).toggle()">
+                            <i class="cil-menu icon icon-lg"></i>
+                        </button>
+                        <span class="navbar-brand mb-0 h1 ms-3">@ViewBag.Title</span>
+
+                        <ul class="header-nav ms-auto">
+                            <li class="nav-item dropdown">
+                                <a class="nav-link py-0 pe-0 d-flex align-items-center" data-coreui-toggle="dropdown" href="#" role="button">
+                                    <span class="me-2 small text-body-secondary">{{main.CurrentUser.FirstName}} {{main.CurrentUser.LastName}}</span>
+                                    <span class="badge bg-secondary">{{main.CurrentUser.Role}}</span>
+                                </a>
+                                <div class="dropdown-menu dropdown-menu-end pt-0">
+                                    <div class="dropdown-header bg-body-tertiary text-body-secondary fw-semibold rounded-top mb-2">Account</div>
+                                    <a class="dropdown-item" href="#" data-coreui-toggle="modal" data-coreui-target="#PasswordModal">
+                                        <i class="cil-lock-locked me-2"></i> Change Password
+                                    </a>
+                                    <div class="dropdown-divider"></div>
+                                    <a class="dropdown-item" href="#" data-coreui-toggle="modal" data-coreui-target="#logoutModal">
+                                        <i class="cil-account-logout me-2"></i> Logout
+                                    </a>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </header>
+                <!-- End of Header -->
+
+                <div class="body flex-grow-1">
+                    <div class="container-fluid">
+                        @RenderBody()
+                    </div>
+                </div>
+
+                <footer class="footer px-4">
+                    <div><span class="text-primary"><b>CoreUIDemo &mdash; learning replica, not for production use</b></span></div>
+                </footer>
+            </div>
+
+            <!-- Logout Modal -->
+            <div class="modal fade" id="logoutModal" tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="logoutModalLabel">Ready to Leave?</h5>
+                            <button class="btn-close" type="button" data-coreui-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">Select "Logout" below if you are ready to end your current session.</div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" type="button" data-coreui-dismiss="modal">Cancel</button>
+                            <a class="btn btn-primary" ng-click="Logout()">Logout</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Change Password Modal -->
+            <div class="modal fade" id="PasswordModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Change Password</h5>
+                            <button class="btn-close" type="button" data-coreui-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="alert alert-danger" ng-if="main.PasswordErrors.length">
+                                <div ng-repeat="e in main.PasswordErrors">{{e}}</div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Current Password</label>
+                                <input type="password" class="form-control" ng-model="main.ChangePassword.CurrentPassword" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">New Password</label>
+                                <input type="password" class="form-control" ng-model="main.ChangePassword.NewPassword" />
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" ng-click="ChangePassword(main.ChangePassword)" ng-disabled="main.PasswordSaving">Change Password</button>
+                            <button class="btn btn-secondary" data-coreui-dismiss="modal">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
-    </nav>
-    <div class="container body-content">
-        @RenderBody()
-        <hr />
-        <footer>
-            <p>&copy; @DateTime.Now.Year - My ASP.NET Application</p>
-        </footer>
     </div>
 
     @Scripts.Render("~/bundles/jquery")
-    @Scripts.Render("~/bundles/bootstrap")
+    @Scripts.Render("~/bundles/jqueryval")
+    @Scripts.Render("~/bundles/coreui")
+    @Scripts.Render("~/bundles/angular")
+    @Scripts.Render("~/bundles/app")
     @RenderSection("scripts", required: false)
 </body>
 </html>
