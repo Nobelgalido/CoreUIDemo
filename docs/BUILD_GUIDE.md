@@ -1131,3 +1131,1138 @@ git commit -m "feat: controllers"
 ```
 
 ---
+
+## § 7 — Vendoring CoreUI and bundles
+
+OneMasaito keeps its compiled theme in `Content/build/` and every third-party library in `Content/vendor/<name>/`, and registers three bundles: `~/Content/css`, `~/bundles/scripts`, `~/bundles/angular`. This section does the same with CoreUI. `docs/COREUI_GUIDE.md` explains *why* each file is chosen; this section just puts them in place.
+
+### 7.1 Copy the files
+
+From the web project folder, in PowerShell:
+
+```powershell
+$dist = "..\coreui-free-bootstrap-admin-template-v5.5.0-dist"
+$om   = "..\..\OneMasaito\OneMasaito"
+
+New-Item -ItemType Directory -Force Content\build\css, Content\vendor\@coreui\coreui\js, Content\vendor\@coreui\icons\css, Content\vendor\@coreui\icons\fonts, Content\vendor\simplebar\css, Content\vendor\simplebar\js, Content\vendor\growl, Scripts\js, Src\Image | Out-Null
+
+Copy-Item "$dist\css\style.css*"                                   Content\build\css\
+Copy-Item "$dist\vendors\@coreui\coreui\js\coreui.bundle.min.js*"  Content\vendor\@coreui\coreui\js\
+Copy-Item "$dist\vendors\@coreui\icons\css\free.min.css*"          Content\vendor\@coreui\icons\css\
+Copy-Item "$dist\vendors\@coreui\icons\fonts\CoreUI-Icons-Free.*"  Content\vendor\@coreui\icons\fonts\
+Copy-Item "$dist\vendors\simplebar\css\simplebar.css"              Content\vendor\simplebar\css\
+Copy-Item "$dist\vendors\simplebar\js\simplebar.min.js"            Content\vendor\simplebar\js\
+Copy-Item "$dist\js\color-modes.js*"                               Scripts\js\
+Copy-Item "$dist\assets\brand\coreui.svg"                          Src\Image\
+Copy-Item "$dist\assets\favicon\favicon-32x32.png"                 Src\Image\
+Copy-Item "$om\Scripts\angular-growl.min.js"                       Scripts\
+Copy-Item "$om\Content\vendor\growl\angular-growl.min.css"         Content\vendor\growl\
+```
+
+If you do not have the OneMasaito folder, `angular-growl-v2 0.7.3` is on GitHub — download `build/angular-growl.min.js` and `build/angular-growl.min.css` from https://github.com/JanStevens/angular-growl-2 into the same two locations.
+
+`Scripts/angular.min.js` comes from the `angularjs 1.8.2` NuGet package that is already in `packages.config`. If it is missing from `Scripts/`, run `Update-Package -reinstall angularjs -ProjectName CoreUIDemo` in the Package Manager Console.
+
+### 7.2 Include the new files in the project
+
+Solution Explorer → **Show All Files** (toolbar icon) → select `Content\build`, `Content\vendor`, `Scripts\js`, `Src`, and `Scripts\angular-growl.min.js` → right-click → **Include In Project**. Turn *Show All Files* off again. Un-included files are not deployed and, for CSS/JS, produce a silent 404.
+
+### 7.3 `Content/Site.css`
+
+Replace the MVC template's `Site.css` with the loader spinner that OneMasaito's theme ships (its `sb-admin-2.css` defines `.loader`; CoreUI's `style.css` does not), plus the icon-button helper class OneMasaito's views use.
+
+```css
+/* Full-page loader shown by _Layout until mainController.Init() has loaded the current user
+   (ported from OneMasaito's Content/build/css/sb-admin-2.css). */
+.loader {
+    border: 16px solid #f3f3f3;
+    border-top: 16px solid #3498db;
+    border-radius: 50%;
+    width: 120px;
+    height: 120px;
+    animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* OneMasaito's helper for icon-only buttons in the accounts grid. */
+.icon-text-white-50 {
+    color: rgba(255, 255, 255, 0.5);
+}
+```
+
+### 7.4 `App_Start/BundleConfig.cs`
+
+Same three bundle names as OneMasaito. Order inside `~/bundles/scripts` matters: jQuery first (the keypress filters in § 9 use it), then CoreUI (so the `coreui` global exists before any Angular controller runs), then Angular, then angular-growl (which registers a module on `angular`).
+
+```csharp
+using System.Web;
+using System.Web.Optimization;
+
+namespace CoreUIDemo
+{
+    public class BundleConfig
+    {
+        // For more information on bundling, visit https://go.microsoft.com/fwlink/?LinkId=301862
+        public static void RegisterBundles(BundleCollection bundles)
+        {
+            bundles.Add(new ScriptBundle("~/bundles/jquery").Include(
+                        "~/Scripts/jquery-{version}.js"));
+
+            bundles.Add(new ScriptBundle("~/bundles/jqueryval").Include(
+                        "~/Scripts/jquery.validate*"));
+
+            // Use the development version of Modernizr to develop with and learn from. Then, when you're
+            // ready for production, use the build tool at https://modernizr.com to pick only the tests you need.
+            bundles.Add(new ScriptBundle("~/bundles/modernizr").Include(
+                        "~/Scripts/modernizr-*"));
+
+            bundles.Add(new StyleBundle("~/Content/css").Include(
+                      "~/Content/build/css/style.css",
+                      "~/Content/vendor/@coreui/icons/css/free.min.css",
+                      "~/Content/vendor/simplebar/css/simplebar.css",
+                      "~/Content/vendor/growl/angular-growl.min.css",
+                      "~/Content/Site.css"
+                      ));
+
+            bundles.Add(new ScriptBundle("~/bundles/scripts").Include(
+                "~/Scripts/jquery-3.7.1.min.js",
+                "~/Content/vendor/@coreui/coreui/js/coreui.bundle.min.js",
+                "~/Content/vendor/simplebar/js/simplebar.min.js",
+                "~/Scripts/angular.min.js",
+                "~/Scripts/angular-growl.min.js"
+                ));
+
+            bundles.Add(new ScriptBundle("~/bundles/angular").Include(
+                "~/App/App.js",
+                "~/App/Controller/Login.js",
+                "~/App/Controller/UserAccounts.js"
+                ));
+
+#if DEBUG
+            BundleTable.EnableOptimizations = false;
+#else
+            BundleTable.EnableOptimizations = true;
+#endif
+        }
+    }
+}
+```
+
+Three things to know:
+
+- **`~/Content/css` is a bundle *name*, and the physical folder `Content/css/` was deleted in § 1.** If that folder exists, IIS serves the folder (403/404) instead of the bundle and the whole site renders unstyled with no error anywhere. This is the reason § 1 deletes it. Keep it deleted.
+- **`Scripts/js/color-modes.js` is not in any bundle.** It has to run in `<head>` before first paint (it sets `data-coreui-theme` on `<html>` from `localStorage`); `_Layout.cshtml` loads it with a plain `<script>` tag (§ 8).
+- `free.min.css` references its fonts as `../fonts/CoreUI-Icons-Free.woff`. Bundling rewrites relative URLs to the bundle's virtual path, so the fonts must sit next to the css exactly as copied (`Content/vendor/@coreui/icons/fonts/`). Do not move them.
+
+⚠️ **DEVIATION** — `~/bundles/bootstrap` is gone (OneMasaito registers it and never renders it — CoreUI's bundle contains Bootstrap). DataTables, Chart.js, jquery-easing, moment, respond, angular-file-upload are gone (used by modules that do not exist here). The `#if DEBUG` optimisation switch is added so you get readable, unminified files while debugging.
+
+### 7.5 `App_Start/RouteConfig.cs`
+
+The application root is the **login page**, as in OneMasaito. There is no anonymous landing page.
+
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+using System.Web.Routing;
+
+namespace CoreUIDemo
+{
+    public class RouteConfig
+    {
+        public static void RegisterRoutes(RouteCollection routes)
+        {
+            routes.IgnoreRoute("{resource}.axd/{*pathInfo}");
+
+            routes.MapRoute(
+                name: "Default",
+                url: "{controller}/{action}/{id}",
+                defaults: new { controller = "Home", action = "Login", id = UrlParameter.Optional }
+            );
+        }
+    }
+}
+```
+
+✅ **VERIFY**
+- `Build → Rebuild` — 0 errors.
+- In Solution Explorer, `Content/build/css/style.css`, `Content/vendor/@coreui/coreui/js/coreui.bundle.min.js`, `Scripts/angular.min.js`, `Scripts/angular-growl.min.js`, `Scripts/js/color-modes.js`, `Src/Image/coreui.svg` all appear **without** the "not included" dotted icon.
+- `Content/css` does **not** exist on disk.
+
+🔍 **GIT CHECKPOINT 7**
+
+```bash
+git add -A
+git commit -m "feat: vendor CoreUI v5.5.0 and bundles"
+```
+
+---
+
+## § 8 — Layout, Login and Dashboard views
+
+The views mirror OneMasaito's `Views/Shared/_Layout.cshtml`, `Views/Home/Login.cshtml` and `Views/Home/Index.cshtml`, with CoreUI's shell markup (from the dist's `index.html` and `authentication/login.html`) in place of SB Admin 2's. Everything Angular-related — `ng-app`, `ng-controller`, `ng-init="Init()"`, the loader, the growl container, the two global modals — is OneMasaito's, verbatim where the markup allows.
+
+Two CoreUI facts drive the markup differences from OneMasaito (details in `COREUI_GUIDE.md` §7):
+
+- Data attributes are `data-coreui-toggle` / `data-coreui-target` / `data-coreui-dismiss` (not `data-toggle` …).
+- The JavaScript global is `coreui`, not `bootstrap`, and there is **no jQuery plugin API** — `$('#x').modal('show')` does not exist. § 9's controllers use `coreui.Modal.getOrCreateInstance(...)` instead.
+
+### 8.1 `Views/_ViewStart.cshtml`
+
+Unchanged from the template (and identical to OneMasaito's):
+
+```cshtml
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+```
+
+### 8.2 `Views/Shared/_Layout.cshtml`
+
+Structure (top to bottom): head → `mainController` wrapper with loader → growl → CoreUI sidebar → CoreUI wrapper (header / body / footer) → Logout modal → Change Password modal.
+
+```cshtml
+<!DOCTYPE html>
+<html ng-app="app">
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
+    <link href="~/Src/Image/favicon-32x32.png" rel="shortcut icon" type="image/png" />
+    <title>CoreUIDemo</title>
+    @Styles.Render("~/Content/css")
+    <script src="~/Scripts/js/color-modes.js"></script>
+    @Scripts.Render("~/bundles/scripts")
+    @Scripts.Render("~/bundles/angular")
+</head>
+<body>
+    <div ng-controller="mainController as main" ng-init="Init()">
+        <div class="d-flex justify-content-center align-items-center vh-100" ng-hide="main.ItemLoad">
+            <div class="loader"></div>
+        </div>
+        <div ng-show="main.ItemLoad">
+            <div growl class="fading"></div>
+
+            <!-- Sidebar -->
+            <div class="sidebar sidebar-dark sidebar-fixed border-end" id="sidebar">
+                <div class="sidebar-header border-bottom">
+                    <div class="sidebar-brand me-auto">
+                        <img class="sidebar-brand-full" style="height:32px;" src="~/Src/Image/coreui.svg" alt="CoreUIDemo" />
+                        <img class="sidebar-brand-narrow" style="height:32px;" src="~/Src/Image/coreui.svg" alt="CoreUIDemo" />
+                    </div>
+                    <button class="btn-close d-lg-none" type="button" data-coreui-theme="dark" aria-label="Close"
+                            onclick="coreui.Sidebar.getOrCreateInstance(document.querySelector('#sidebar')).toggle()"></button>
+                </div>
+                <ul class="sidebar-nav" data-coreui="navigation" data-simplebar>
+                    <!-- Nav Item - Dashboard -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="/Home/Index">
+                            <i class="nav-icon cil-speedometer"></i>
+                            Dashboard
+                        </a>
+                    </li>
+
+                    <!-- Heading -->
+                    <li class="nav-title">Modules</li>
+
+                    <!-- Nav Group - Settings (admin only) -->
+                    <li class="nav-group" ng-show="main.CurrentUser.Role === 'admin'">
+                        <a class="nav-link nav-group-toggle" href="#">
+                            <i class="nav-icon cil-settings"></i>
+                            Settings
+                        </a>
+                        <ul class="nav-group-items compact">
+                            <li class="nav-item">
+                                <a class="nav-link" href="/Settings/UserAccounts">
+                                    <i class="nav-icon cil-people"></i>
+                                    User Account
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+                <div class="sidebar-footer border-top d-none d-md-flex">
+                    <button class="sidebar-toggler" type="button" data-coreui-toggle="unfoldable"></button>
+                </div>
+            </div>
+            <!-- End of Sidebar -->
+
+            <!-- Content Wrapper -->
+            <div class="wrapper d-flex flex-column min-vh-100">
+
+                <!-- Topbar -->
+                <header class="header header-sticky p-0 mb-4">
+                    <div class="container-fluid border-bottom px-4">
+                        <button class="header-toggler" type="button" style="margin-inline-start: -14px"
+                                onclick="coreui.Sidebar.getOrCreateInstance(document.querySelector('#sidebar')).toggle()">
+                            <i class="icon icon-lg cil-menu"></i>
+                        </button>
+
+                        <div class="input-group ms-3" style="max-width:500px;">
+                            <input type="text" class="form-control" placeholder="Search for..."
+                                   aria-label="Search" ng-model="main.SearchBox">
+                            <span class="input-group-text"><i class="cil-search"></i></span>
+                        </div>
+
+                        <!-- Topbar Navbar -->
+                        <ul class="header-nav ms-auto">
+                            <!-- Theme switcher (required by color-modes.js — see COREUI_GUIDE §9) -->
+                            <li class="nav-item dropdown">
+                                <button class="btn btn-link nav-link py-2 px-2 d-flex align-items-center" type="button"
+                                        aria-expanded="false" data-coreui-toggle="dropdown">
+                                    <span class="theme-icon-active">Theme</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end" style="--cui-dropdown-min-width: 8rem">
+                                    <li><button class="dropdown-item" type="button" data-coreui-theme-value="light">Light</button></li>
+                                    <li><button class="dropdown-item" type="button" data-coreui-theme-value="dark">Dark</button></li>
+                                    <li><button class="dropdown-item active" type="button" data-coreui-theme-value="auto">Auto</button></li>
+                                </ul>
+                            </li>
+
+                            <li class="nav-item py-1">
+                                <div class="vr h-100 mx-2 text-body text-opacity-75"></div>
+                            </li>
+
+                            <!-- Nav Item - User Information -->
+                            <li class="nav-item dropdown">
+                                <a class="nav-link py-0 pe-0 d-flex align-items-center" data-coreui-toggle="dropdown" href="#" role="button"
+                                   aria-haspopup="true" aria-expanded="false">
+                                    <span class="me-2 d-none d-lg-inline text-body-secondary small">{{main.CurrentUser.FirstName}} {{main.CurrentUser.LastName}}</span>
+                                    <i class="icon icon-lg cil-user"></i>
+                                </a>
+                                <!-- Dropdown - User Information -->
+                                <div class="dropdown-menu dropdown-menu-end pt-0">
+                                    <div class="dropdown-header bg-body-tertiary text-body-secondary fw-semibold rounded-top mb-2">Account</div>
+                                    <a class="dropdown-item" href="#" data-coreui-toggle="modal" data-coreui-target="#PasswordModal" ng-click="OpenPasswordModal()">
+                                        <i class="cil-lock-locked me-2"></i>
+                                        Change Password
+                                    </a>
+                                    <div class="dropdown-divider"></div>
+                                    <a class="dropdown-item" href="#" data-coreui-toggle="modal" data-coreui-target="#logoutModal">
+                                        <i class="cil-account-logout me-2"></i>
+                                        Logout
+                                    </a>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </header>
+                <!-- End of Topbar -->
+
+                <!-- Begin Page Content -->
+                <div class="body flex-grow-1">
+                    <div class="container-fluid px-4">
+                        @RenderBody()
+                    </div>
+                </div>
+                <!-- End of Page Content -->
+
+                <!-- Footer -->
+                <footer class="footer px-4">
+                    <div><span class="text-primary"><b>&copy; CoreUIDemo 2026. Learning replica of the OneMasaito user module.</b></span></div>
+                </footer>
+                <!-- End of Footer -->
+
+            </div>
+            <!-- End of Content Wrapper -->
+
+            <!-- Logout Modal-->
+            <div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="logoutModalLabel" aria-hidden="true">
+                <div class="modal-dialog" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="logoutModalLabel">Ready to Leave?</h5>
+                            <button class="btn-close" type="button" data-coreui-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">Select "Logout" below if you are ready to end your current session.</div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" type="button" data-coreui-dismiss="modal">Cancel</button>
+                            <a class="btn btn-primary" ng-click="Logout()">Logout</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!--Change Password Modal-->
+            <div class="modal fade" id="PasswordModal" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Change Password</h5>
+                            <button class="btn-close" type="button" data-coreui-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Current Password</label>
+                                <input type="password" class="form-control" ng-model="main.ChangePassword.CurrentPassword" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">New Password</label>
+                                <input type="password" class="form-control" ng-model="main.ChangePassword.NewPassword" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Confirm Password</label>
+                                <input type="password" class="form-control" ng-model="main.ChangePassword.ConfirmPassword" />
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" ng-click="ChangePassword(main.ChangePassword)">Change Password</button>
+                            <button class="btn btn-secondary" data-coreui-dismiss="modal">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+```
+
+What is OneMasaito's and what is CoreUI's:
+
+- **OneMasaito**: scripts rendered in `<head>`; `ng-controller="mainController as main" ng-init="Init()"` on the outermost div; the `.loader` shown until `main.ItemLoad`; `<div growl class="fading">`; the header search box bound to `main.SearchBox` (the accounts grid filters on it); the user dropdown with *Change Password* (opens `#PasswordModal` **and** calls `OpenPasswordModal()` to clear the fields — OneMasaito wires both) and *Logout* (opens `#logoutModal`, whose confirm button calls `Logout()`); both modals' contents.
+- **CoreUI**: `div.sidebar` / `ul.sidebar-nav[data-coreui="navigation"]` / `sidebar-footer` / `div.wrapper` / `header.header` / `div.body` / `footer.footer`; `data-coreui-*` attributes; `btn-close`; `mb-3` instead of `form-group`; the theme dropdown.
+- **The theme dropdown is not optional.** `color-modes.js` runs `showActiveTheme()` on `DOMContentLoaded` and dereferences the button matching `[data-coreui-theme-value="…"]`; with no such buttons it throws a `TypeError` in the console on every page. If you do not want a theme switcher, remove **both** the dropdown and the `<script src="~/Scripts/js/color-modes.js">` tag and hard-code `<html ng-app="app" data-coreui-theme="light">`.
+- Sidebar gating: OneMasaito shows its *Settings* group when `Department === 1 || Settings === 2 || Settings === 3`. With neither column here, the equivalent is `Role === 'admin'`. This is a UI convenience only — `/Settings/UserAccounts` itself checks only that *someone* is logged in (§ 6), exactly like OneMasaito.
+
+⚠️ **DEVIATION** — Google Fonts `<link>` (Nunito) removed; CoreUI uses the system font stack. The `#sidebarToggle` button and the `$("#sidebarToggle").click(...)` jQuery block in `App.js` are gone — CoreUI's `sidebar-toggler` / `header-toggler` handle it. The "Patch Notes" nav item becomes "Dashboard". The mobile search dropdown (`d-sm-none`) is dropped; the one search input is enough.
+
+### 8.3 `Views/Home/Login.cshtml`
+
+`Layout = null` and its own `ng-app="login"` — a completely separate Angular application from the layout's `app`, exactly as OneMasaito. The card is CoreUI's `authentication/login.html` reduced to what OneMasaito's login has: username, password, one button, a version line.
+
+```cshtml
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+
+<html ng-app="login" data-coreui-theme="light">
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
+    <link href="~/Src/Image/favicon-32x32.png" rel="shortcut icon" type="image/png" />
+
+    @Styles.Render("~/Content/css")
+    @Scripts.Render("~/bundles/scripts")
+    @Scripts.Render("~/bundles/angular")
+
+    <title>Login</title>
+</head>
+<body class="bg-body-tertiary min-vh-100 d-flex flex-row align-items-center" ng-controller="loginController as vm">
+    <div growl class="fading"></div>
+
+    <div class="container" style="max-width: 32rem">
+        <div class="d-flex flex-column gap-4">
+            <div class="text-center">
+                <img style="height:48px;" src="~/Src/Image/coreui.svg" alt="CoreUIDemo" />
+            </div>
+
+            <div class="card p-4">
+                <div class="card-body d-flex flex-column gap-4">
+                    <h2 class="h5 text-center">Login to your account</h2>
+                    <form class="row gap-3" autocomplete="off" novalidate>
+                        <div>
+                            <label class="form-label" for="username">Username</label>
+                            <input class="form-control" id="username" type="text" placeholder="Enter Username. . . "
+                                   ng-model="vm.Username" />
+                        </div>
+                        <div>
+                            <label class="form-label" for="password">Password</label>
+                            <input class="form-control" id="password" type="password" placeholder="Enter Password. . . "
+                                   ng-model="vm.Password" />
+                        </div>
+                        <div>
+                            <button class="btn btn-primary w-100" type="button" ng-click="TryLogin()">Login</button>
+                        </div>
+                    </form>
+                    <hr />
+                    <p class="text-primary text-center mb-0"><b>version 1.0.0</b></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+```
+
+`type="button"` on the Login button matters: the form has no `action`, and a default `submit` button would reload the page. Enter-key login is handled by `Login.js` (§ 9), as in OneMasaito.
+
+`data-coreui-theme="light"` on `<html>` pins the login page to the light theme because this page does not load `color-modes.js` (it has no theme dropdown for that script to bind to — see § 8.2). `COREUI_GUIDE.md` §9 shows how to make it follow the saved theme if you want that.
+
+⚠️ **DEVIATION** — CoreUI's login card also has "I forgot password", "Remember me", "Login with Google/Apple" and "Sign up". OneMasaito has none of these, so neither does this page. OneMasaito's two-column card with the 50th-anniversary image on the left is replaced by CoreUI's single-column card.
+
+### 8.4 `Views/Home/Index.cshtml`
+
+OneMasaito's `Index` is an 1,830-line "Patch Notes" page. The shell — a page rendered inside `_Layout` that redirects to Login when there is no user — is what is mirrored; the content is a placeholder card.
+
+```cshtml
+@{
+    ViewBag.Title = "Dashboard";
+}
+
+<h1 class="h3 mb-4">Dashboard</h1>
+
+<div class="card mb-4">
+    <div class="card-header">Welcome</div>
+    <div class="card-body">
+        <p class="mb-1">Signed in as <b>{{main.CurrentUser.FullName}}</b> ({{main.CurrentUser.Username}}, role: {{main.CurrentUser.Role}}).</p>
+        <p class="text-body-secondary mb-0" ng-show="main.CurrentUser.Role === 'admin'">Use <b>Settings &rarr; User Account</b> in the sidebar to manage accounts.</p>
+    </div>
+</div>
+```
+
+✅ **VERIFY** — press **F5**.
+- The browser opens at `/Home/Login` (the default route) and the card renders with CoreUI styling. Open DevTools → Console: no errors. (`Unknown provider: growlProvider` or `[$injector:modulerr]` means a bundle is wrong — see Appendix A.)
+- Navigate to `/Home/Index` by hand — you are redirected back to `/Home/Login` (no cookie yet).
+- Navigate to `/Home/GetCurrentUser` — the response is `{"obj":null}`.
+- Login itself does not work yet: `Login.js` is written in § 9.
+
+🔍 **GIT CHECKPOINT 8**
+
+```bash
+git add -A
+git commit -m "feat: layout, login and dashboard views"
+```
+
+---
+
+## § 9 — User Accounts view and Angular controllers
+
+The three Angular files mirror OneMasaito's `App/App.js`, `App/Controller/Login.js` and `App/Controller/UserAccounts.js`: **one Angular module per page**. `app` (the layout) lists the page modules as dependencies; `useraccount` depends on `app` back (Angular tolerates the cycle; OneMasaito relies on it); `login` stands alone because the login page has no layout. All three files are in `~/bundles/angular` and load on every page.
+
+Validation in the browser is done the OneMasaito way: a chain of `if / else if` checks that each `growl.error(...)` a fixed string, with the actual `$http` call in the final `else`. The two user-requested rules (letters-only names, 6-character passwords) are added to those chains with the same shape. Modals are shown/hidden through two tiny global helpers because CoreUI has no jQuery plugin API.
+
+### 9.1 `App/App.js`
+
+```js
+var app = angular.module('app', ["angular-growl", "login", "useraccount"])
+    .controller("mainController", ['$scope', '$location', '$http', 'growl', function ($scope, $location, $http, growl) {
+        var main = this;
+
+        main.ChangePassword = {};
+
+        main.ChangePassword.CurrentPassword = "";
+
+        main.ChangePassword.NewPassword = "";
+
+        main.ChangePassword.ConfirmPassword = "";
+
+        main.SearchBox = "";
+
+        main.ItemLoad = true;
+
+        PopUpMessage = function (data) {
+            if (data.message == "Saved" || data.message == "Updated" || data.message == "Deleted") {
+                growl.success("Successfully " + data.message, { ttl: 4000 });
+            }
+            else {
+                growl.error(data.message, { title: "Error!", ttl: 5000 });
+            }
+        };
+
+        ShowModal = function (id) {
+            coreui.Modal.getOrCreateInstance(document.getElementById(id)).show();
+        };
+
+        HideModal = function (id) {
+            coreui.Modal.getOrCreateInstance(document.getElementById(id)).hide();
+        };
+
+        $scope.Init = function () {
+            main.ItemLoad = false;
+            $http({
+                method: "POST",
+                url: "/Home/GetCurrentUser",
+                arguments: { "Content-Type": "application/json" }
+            }).then(function (data) {
+                main.CurrentUser = data.data.obj;
+
+                main.ItemLoad = true;
+            });
+        };
+
+        $scope.ChangePassword = function (value) {
+            if (value.NewPassword == "" || value.NewPassword == null || value.NewPassword.length < 6) {
+                growl.error("Password must be at least 6 characters", { title: "Error!", ttl: 3000 });
+            }
+            else if (value.ConfirmPassword != value.NewPassword) {
+                growl.error("Password Not Match!", { title: "Error!", ttl: 3000 });
+
+                value.CurrentPassword = "";
+
+                value.NewPassword = "";
+
+                value.ConfirmPassword = "";
+            }
+            else {
+                $http({
+                    method: "POST",
+                    url: "/Home/ChangePassword",
+                    data: { password: value }
+                }).then(function (data) {
+                    if (data.data.errorMessage == "") {
+                        growl.success("Password Successfully Changed", { ttl: 2000 });
+
+                        HideModal("PasswordModal");
+                    }
+                    else {
+                        growl.error(data.data.errorMessage, { title: "Error!", ttl: 3000 });
+
+                        value.CurrentPassword = "";
+
+                        value.NewPassword = "";
+
+                        value.ConfirmPassword = "";
+                    }
+                });
+            }
+        };
+
+        $scope.Logout = function () {
+            $http({
+                method: "POST",
+                url: "/Home/Logout",
+                arguments: { "Content-Type": "application/json" }
+            }).then(function (data) {
+                if (data.data != "") {
+                    growl.error(data.data, { title: "Error!", ttl: 3000 });
+                }
+                else {
+                    HideModal("logoutModal");
+
+                    window.location.href = "/Home/Login";
+                }
+            });
+        };
+
+        $scope.OpenPasswordModal = function () {
+            main.ChangePassword.CurrentPassword = "";
+
+            main.ChangePassword.NewPassword = "";
+
+            main.ChangePassword.ConfirmPassword = "";
+        };
+
+    }]);
+```
+
+- `PopUpMessage`, `ShowModal`, `HideModal` are deliberately **global** (no `var`), the way OneMasaito declares `PopUpMessage`, so `UserAccounts.js` can call them.
+- `main.ItemLoad` starts `true`, `Init()` flips it to `false` while `/Home/GetCurrentUser` is in flight, then back to `true` — that is what shows and hides the `.loader` in `_Layout`. (OneMasaito's exact sequence.)
+- `arguments: { "Content-Type": ... }` is not an `$http` option — it is a harmless typo carried over from OneMasaito; `$http` sends JSON by default.
+
+⚠️ **DEVIATION** — the 35-module dependency list becomes 2; `main.EntityList` / `main.ProjectList` / `main.SelectedModule` / `$scope.SelectModule` are gone; the `$("#sidebarToggle")` block is gone; the password-length check is new; `HideModal("logoutModal")` before redirecting is new (CoreUI leaves the modal backdrop on the page otherwise).
+
+### 9.2 `App/Controller/Login.js`
+
+```js
+angular.module("login", ["angular-growl"])
+    .controller("loginController", ['$scope', '$location', '$http', 'growl', function ($scope, $location, $http, growl) {
+        var vm = this;
+
+        $(document).on('keypress', function (e) {
+            if (e.which == 13) {
+                $scope.TryLogin();
+            }
+        });
+
+        $scope.TryLogin = function () {
+            $http({
+                method: "POST",
+                url: "/Home/Login",
+                data: {
+                    username: vm.Username,
+                    password: vm.Password
+                }
+            }).then(function (data) {
+                if (data.data.errorMessage != "") {
+                    growl.error(data.data.errorMessage, { title: "Error!", ttl: 3000 });
+                }
+                else {
+                    window.location.href = "/Home/Index";
+                }
+            });
+        };
+    }]);
+```
+
+A straight copy of OneMasaito's file. Enter anywhere on the page submits (jQuery `keypress`), the response's `errorMessage` decides between a growl and a redirect. There is no client-side validation here because OneMasaito has none: an empty username/password simply comes back as `Invalid Username or Password!!`.
+
+### 9.3 `App/Controller/UserAccounts.js`
+
+```js
+angular.module("useraccount", ["app"])
+
+    .controller("accountsController", function ($scope, $location, $http, growl) {
+        var vm = this;
+
+        vm.RoleList = ["user", "manager", "admin"];
+
+        vm.ChangePassword = {};
+
+        var namePattern = /^[a-zA-Z ]+$/;
+
+        $scope.Init = function () {
+            $http({
+                method: "POST",
+                url: "/Settings/GetAccounts",
+                arguments: { "Content-Type": "application/json" }
+            }).then(function (data) {
+                vm.AccountList = data.data.accountList;
+            });
+
+        };
+
+        $scope.NewAccount = function () {
+            vm.ModalHeader = "New";
+
+            vm.Modal = { Role: "user" };
+
+            ShowModal("AccountModal");
+        };
+
+        $scope.EditAccount = function (value) {
+            vm.ModalHeader = "Edit";
+
+            vm.Modal = angular.copy(value);
+
+            ShowModal("AccountModal");
+        };
+
+        $scope.Save = function () {
+
+            if (vm.Modal.Username == "" || vm.Modal.Username == null) {
+                growl.error("Please input Username", { ttl: 5000 });
+            }
+            else if (vm.ModalHeader === "New" && (vm.Modal.Password == "" || vm.Modal.Password == null)) {
+                growl.error("Please input Password", { ttl: 5000 });
+            }
+            else if (vm.ModalHeader === "New" && vm.Modal.Password.length < 6) {
+                growl.error("Password must be at least 6 characters", { ttl: 5000 });
+            }
+            else if (vm.Modal.FirstName == "" || vm.Modal.FirstName == null) {
+                growl.error("Please input First Name", { ttl: 5000 });
+            }
+            else if (!namePattern.test(vm.Modal.FirstName)) {
+                growl.error("First Name must contain letters only", { ttl: 5000 });
+            }
+            else if (vm.Modal.LastName == "" || vm.Modal.LastName == null) {
+                growl.error("Please input Last Name", { ttl: 5000 });
+            }
+            else if (!namePattern.test(vm.Modal.LastName)) {
+                growl.error("Last Name must contain letters only", { ttl: 5000 });
+            }
+            else if (vm.Modal.Role == "" || vm.Modal.Role == null) {
+                growl.error("Please select Role", { ttl: 5000 });
+            }
+            else {
+                $http({
+                    method: "POST",
+                    url: "/Settings/SaveNewAccount",
+                    data: {
+                        account: vm.Modal,
+                        role: vm.Modal.Role
+                    }
+                }).then(function (data) {
+                    PopUpMessage(data.data);
+
+                    $scope.Init();
+
+                    if (data.data.message == "Saved") {
+                        HideModal("AccountModal");
+                    }
+                });
+            }
+        };
+
+        $("#firstName").keypress(function (event) {
+            var inputValue = event.which;
+
+            if (!(inputValue >= 65 && inputValue <= 90) && !(inputValue >= 97 && inputValue <= 122) && inputValue != 32) {
+                event.preventDefault();
+            }
+        });
+
+
+        $('#lastName').keypress(function (event) {
+            var inputValue = event.which;
+
+            if (!(inputValue >= 65 && inputValue <= 90) && !(inputValue >= 97 && inputValue <= 122) && inputValue != 32) {
+                event.preventDefault();
+            }
+        });
+
+        $scope.UpdatePassword = function (value) {
+
+            vm.Change = angular.copy(value);
+
+            ShowModal("ChangePasswordModal");
+        };
+
+        $scope.ChangePassword = function () {
+
+            if (vm.Change.NewPassword == "" || vm.Change.NewPassword == null) {
+                growl.error("Please input New Password", { ttl: 5000 });
+            }
+            else if (vm.Change.ConfirmPassword == "" || vm.Change.ConfirmPassword == null) {
+                growl.error("Please input Confirm Password", { ttl: 5000 });
+            }
+            else if (vm.Change.NewPassword.length < 6) {
+                growl.error("Password must be at least 6 characters", { ttl: 5000 });
+            }
+            else {
+                if (vm.Change.NewPassword != vm.Change.ConfirmPassword) {
+                    growl.error("Password Not Match!", { ttl: 5000 });
+                }
+                else {
+                    $http({
+                        method: "POST",
+                        url: "/Settings/AdminChangePassword",
+                        data: {
+                            account: vm.Change.ID,
+                            password: vm.Change.NewPassword
+                        }
+
+                    }).then(function (data) {
+                        if (data.data.errorMessage == "") {
+                            growl.success("Password Successfully Changed", { ttl: 2000 });
+
+                            $scope.Init();
+
+                            HideModal("ChangePasswordModal");
+                        }
+                        else {
+                            growl.error(data.data.errorMessage, { title: "Error", ttl: 2000 })
+
+                            vm.Change.NewPassword = "";
+
+                            vm.Change.ConfirmPassword = "";
+                        }
+                    });
+                }
+            }
+        };
+
+        $scope.UpdateStatus = function (value) {
+
+            vm.Status = angular.copy(value);
+
+            ShowModal("UpdateStatusModal");
+        };
+
+        $scope.SaveStatus = function () {
+            if (vm.Status.ConfirmPassword == "" || vm.Status.ConfirmPassword == null) {
+                growl.error("Please input Password to proceed", { ttl: 5000 });
+            }
+            else {
+                $http({
+                    method: "POST",
+                    url: "/Settings/UpdateStatus",
+                    data: {
+                        account: vm.Status.ID,
+                        password: vm.Status.ConfirmPassword
+                    }
+                }).then(function (data) {
+                    if (data.data.errorMessage == "") {
+                        growl.success("Account Status Successfully Changed", { ttl: 2000 });
+
+                        $scope.Init();
+
+                        HideModal("UpdateStatusModal");
+                    }
+                    else {
+                        growl.error(data.data.errorMessage, { title: "Error", ttl: 2000 })
+
+                        vm.Status.ConfirmPassword = "";
+
+                    }
+
+                });
+            }
+
+        }
+    });
+```
+
+How each piece maps to OneMasaito:
+
+- `Init` → `/Settings/GetAccounts`; only `accountList` comes back now.
+- `NewAccount` / `EditAccount` / `Save` → the Account modal. `vm.Modal.Role` is posted twice — inside `account` (bound to `UserModel.Role`) and as the separate `role` parameter — because the controller signature keeps OneMasaito's `(UserModel account, <second param>)` shape.
+- `Save`'s chain: OneMasaito checks Username → Password → First Name → Last Name → Department. Here the Password checks only apply when creating (the Edit modal hides the password field, as OneMasaito's does), a length check follows the required check, each name gets a regex check after its required check, and Department becomes Role.
+- The `#firstName` / `#lastName` keypress filters are OneMasaito's own — they already block anything that is not a letter or a space, so the regex only matters for pasted text and for the server.
+- `UpdatePassword` / `ChangePassword` → admin reset; the length check is inserted before the match check.
+- `UpdateStatus` / `SaveStatus` → the activate/deactivate modal; `vm.Status.ConfirmPassword` is the **admin's own** password (see § 5.2).
+- `angular.copy(value)` instead of OneMasaito's `vm.Modal = value` — a cancelled edit no longer leaves half-typed values in the grid row.
+
+⚠️ **DEVIATION** — `vm.DepartmentList` / `vm.ReportList`, `UpdateAccess` / `SaveAccess`, `UpdateReport` / `SaveReportAccess` are gone (no tables). The modal is closed only when the save succeeded (OneMasaito closes it either way, so a duplicate-username error would hide the form the user still needs).
+
+### 9.4 `Views/Settings/UserAccounts.cshtml`
+
+One page: the grid, and three modals. OneMasaito's page has five modals; *User Access* and *Report Access* have no tables here.
+
+```cshtml
+@{
+    ViewBag.Title = "User Accounts";
+}
+
+<div ng-controller="accountsController as vm">
+
+    <h1 class="h3 mb-2">Accounts</h1>
+
+    <div class="card mb-4" ng-init="Init()">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>
+                                <button class="btn btn-success" ng-click="NewAccount()">
+                                    <span class="icon-text-white-50">
+                                        <i class="cil-plus"></i>
+                                    </span>
+                                </button>
+                            </th>
+                            <th>UserName</th>
+                            <th>Name</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="acc in vm.AccountList | filter: main.SearchBox">
+                            <td>
+                                <button class="btn btn-info" ng-click="EditAccount(acc)" title="Edit">
+                                    <span class="icon-text-white-50">
+                                        <i class="cil-pencil"></i>
+                                    </span>
+                                </button>
+                                <button class="btn btn-warning" ng-click="UpdatePassword(acc)" title="Reset Password">
+                                    <span class="icon-text-white-50">
+                                        <i class="cil-lock-locked"></i>
+                                    </span>
+                                </button>
+                                <button class="btn btn-danger" ng-click="UpdateStatus(acc)" ng-show="acc.IsActive" title="Deactivate">
+                                    <span class="icon-text-white-50">
+                                        <i class="cil-ban"></i>
+                                    </span>
+                                </button>
+                                <button class="btn btn-success" ng-click="UpdateStatus(acc)" ng-show="!acc.IsActive" title="Activate">
+                                    <span class="icon-text-white-50">
+                                        <i class="cil-check-circle"></i>
+                                    </span>
+                                </button>
+                            </td>
+                            <td>{{acc.Username}}</td>
+                            <td>{{acc.FullName}}</td>
+                            <td>{{acc.Role}}</td>
+                            <td ng-class="{'text-success': acc.IsActive, 'text-danger': !acc.IsActive}">{{ acc.IsActive ? 'Active' : 'Inactive' }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!--CRUD MODAL-->
+    <div class="modal fade" id="AccountModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">{{vm.ModalHeader}} Account</h4>
+                    <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" ng-model="vm.Modal.Username" ng-disabled="vm.ModalHeader === 'Edit'" />
+                    </div>
+
+                    <div class="mb-3" ng-show="vm.ModalHeader === 'New'">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" ng-model="vm.Modal.Password" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">First Name</label>
+                        <input type="text" class="form-control" id="firstName" ng-model="vm.Modal.FirstName" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" class="form-control" id="lastName" ng-model="vm.Modal.LastName" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <select class="form-select" ng-model="vm.Modal.Role" ng-options="r for r in vm.RoleList"></select>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" ng-click="Save()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--END OF CRUD MODAL-->
+
+    <!--CHANGE PASSWORD MODAL-->
+    <div class="modal fade" id="ChangePasswordModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Reset Password - {{vm.Change.FullName}}</h4>
+                    <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">New Password</label>
+                        <input type="password" class="form-control" ng-model="vm.Change.NewPassword" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Confirm Password</label>
+                        <input type="password" class="form-control" ng-model="vm.Change.ConfirmPassword" />
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" ng-click="ChangePassword()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--END OF CHANGE PASSWORD MODAL-->
+
+    <!--UPDATE STATUS MODAL-->
+    <div class="modal fade" id="UpdateStatusModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" ng-show="vm.Status.IsActive">Deactivate Account - {{vm.Status.FullName}}</h4>
+                    <h4 class="modal-title" ng-show="!vm.Status.IsActive">Activate Account - {{vm.Status.FullName}}</h4>
+                    <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Confirm Password</label>
+                        <input type="password" class="form-control" ng-model="vm.Status.ConfirmPassword" />
+                        <div class="form-text">Enter <b>your own</b> password to confirm this change.</div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" ng-click="SaveStatus()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--END OF UPDATE STATUS MODAL-->
+
+</div>
+```
+
+OneMasaito parity: `ng-controller="accountsController as vm"`, `ng-init="Init()"` on the card, `ng-repeat="acc in vm.AccountList | filter: main.SearchBox"` (the header search box filters this grid), the "+" button in the header cell, the same row-action buttons in the same colours, the same three modals with the same ids and the same `ng-model` names, the `#firstName` / `#lastName` ids the keypress filters attach to, the Username field disabled and the Password field hidden in Edit mode.
+
+⚠️ **DEVIATION** — Department column and dropdown → Role column and `<select>` of the three constraint values; Modified By / Modified Date columns gone; User Access and Report Access buttons and modals gone; Font Awesome `fas fa-*` → CoreUI `cil-*`; `data-dismiss="modal"` → `data-coreui-dismiss="modal"`; `close` → `btn-close`; `form-group` → `mb-3`; `form-control` on `<select>` → `form-select`; the hidden `ID` inputs OneMasaito keeps in two modals are dropped (the id travels in `vm.Change.ID` / `vm.Status.ID` anyway); a help line under the status modal's password field says whose password it is.
+
+✅ **VERIFY** — F5, then:
+1. Log in as `admin` / `admin123` → you land on `/Home/Index` with the sidebar showing **Dashboard** and **Settings → User Account**.
+2. Open **User Account** → the grid shows the `admin` row, Role `admin`, Status **Active** in green.
+3. Click **+** → enter Username `jdoe`, Password `12345` → *Password must be at least 6 characters*. Password `123456`, First Name `John2` → the `2` cannot be typed (keypress filter); paste `John2` → *First Name must contain letters only*. First Name `John`, Last Name `Doe`, Role `user` → *Successfully Saved*, modal closes, grid shows the new row.
+4. DevTools → Network → right-click the `SaveNewAccount` request → *Copy as fetch* → paste in Console, change `"FirstName":"John"` to `"FirstName":"J0hn"` and `"Username"` to something new → run → response `{"message":"First Name and Last Name may contain letters and spaces only"}`. That is the server-side rule holding.
+5. Type `doe` in the header search box → the grid filters to John Doe.
+
+🔍 **GIT CHECKPOINT 9**
+
+```bash
+git add -A
+git commit -m "feat: user accounts view and angular controllers"
+```
+
+---
+
+## § 10 — End-to-end verification
+
+Run every step in order on a fresh browser session. The **expected** column is the exact text you should see.
+
+| # | Action | Expected |
+|---|---|---|
+| 1 | Open the site root. | `/Home/Login` renders the login card. |
+| 2 | Log in with a wrong password. | Growl: `Invalid Username or Password!!` |
+| 3 | Log in as `admin` / `admin123`. | Redirect to `/Home/Index`; header shows *System Administrator*; sidebar shows **Settings**. |
+| 4 | Settings → User Account. | Grid lists `admin` (Active) and, if § 9 was verified, `jdoe`. |
+| 5 | **+** → Username `jdoe` (again), Password `123456`, First `Jane`, Last `Doe`, Role `user`. | Growl: `Duplicate Username` (C# check in `SaveNewAccount`). |
+| 6 | **+** → Username `jdoe2`, Password `123456`, First `John`, Last `Doe`, Role `user`. | Growl: `An account for this First Name and Last Name already exists.` (from `sp_InsertUserAccount`). |
+| 7 | **+** → Username `msmith`, Password `123456`, First `Mary Ann`, Last `Smith`, Role `manager`. | `Successfully Saved`; new row, Role `manager`. |
+| 8 | Edit `msmith` → change Role to `user`, Save. | `Successfully Saved`; Role column shows `user`. |
+| 9 | Edit `msmith` → change First Name to `John`, Last Name to `Doe`, Save. | Growl: `An account for this First Name and Last Name already exists.` (from `sp_UpdateUser`). |
+| 10 | Reset Password on `msmith` → New `abc`, Confirm `abc`. | Growl: `Password must be at least 6 characters`. |
+| 11 | Reset Password on `msmith` → New `secret1`, Confirm `secret2`. | Growl: `Password Not Match!` |
+| 12 | Reset Password on `msmith` → New `secret1`, Confirm `secret1`. | `Password Successfully Changed`. |
+| 13 | Deactivate `msmith` → Confirm Password `wrong`. | Growl: `Wrong Password!` |
+| 14 | Deactivate **`admin`** (your own row) → Confirm Password `admin123`. | Growl: `You cannot deactivate your own account.` (from `sp_DeleteUser`); admin stays Active. |
+| 15 | Deactivate `msmith` → Confirm Password `admin123`. | `Account Status Successfully Changed`; `msmith` shows **Inactive** in red; the button turns green. |
+| 16 | Logout (header → Logout → confirm). | Redirect to `/Home/Login`. |
+| 17 | Log in as `msmith` / `secret1`. | Growl: `Account is Locked. Contact MIS Department` |
+| 18 | Log in as `admin`, activate `msmith` (Confirm Password `admin123`), log out, log in as `msmith` / `secret1`. | Redirect to `/Home/Index`; header shows *Mary Ann Smith*; sidebar shows **no** Settings group. |
+| 19 | As `msmith`, type `/Settings/UserAccounts` in the address bar. | The page renders (OneMasaito checks only that a user is logged in — recorded in `ARCHITECTURE.md` §7). |
+| 20 | As `msmith`, header → Change Password → Current `wrong`, New `secret2`, Confirm `secret2`. | Growl: `Current password is incorrect.` (from `sp_UpdateUserPassword`). |
+| 21 | Change Password → Current `secret1`, New `secret1`, Confirm `secret1`. | Growl: `New password must be different from the current password.` |
+| 22 | Change Password → Current `secret1`, New `secret2`, Confirm `secret2`. | `Password Successfully Changed`; log out; `msmith` / `secret2` logs in. |
+| 23 | Log out. Open `/Settings/UserAccounts` directly. | Redirect to `/Home/Login`. |
+| 24 | Header → Theme → Dark. Reload. | Page stays dark (persisted in `localStorage`). |
+
+🔍 **GIT CHECKPOINT 10**
+
+```bash
+git add -A
+git commit -m "docs: end-to-end verification complete"
+```
+
+The conversion is complete. `docs/ARCHITECTURE.md` is the reference from here on.
+
+---
+
+## Appendix A — Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| Page renders completely unstyled; no error anywhere. | A physical `Content/css/` folder exists, so IIS serves the folder instead of the `~/Content/css` bundle. | Delete `Content/css/` (and its csproj entries). § 1.4 / § 7.4. |
+| Unstyled page, and DevTools shows 404 on `/Content/css`. | A CSS file listed in the bundle is not on disk or not included in the project — `StyleBundle` silently skips missing files, and if *all* are missing the bundle URL 404s. | Re-run § 7.1, then § 7.2 *Include In Project*. |
+| Icons show as empty squares. | Fonts not next to `free.min.css`, or fonts not included in the project. | `Content/vendor/@coreui/icons/fonts/CoreUI-Icons-Free.*` must exist and be included. |
+| Console: `coreui is not defined`. | `coreui.bundle.min.js` missing from `~/bundles/scripts`, or listed after `App.js`. | § 7.4 order: CoreUI before Angular; both in `<head>`. |
+| Console: `Unknown provider: growlProvider` / `Module 'angular-growl' is not available`. | `angular-growl.min.js` not in `~/bundles/scripts`, or listed before `angular.min.js`. | § 7.1 copy, § 7.4 order. |
+| Console: `[$injector:modulerr] Failed to instantiate module app … Module 'useraccount' is not available`. | `UserAccounts.js` (or `Login.js`) missing from `~/bundles/angular` or not included in the project. | § 7.4, § 9. |
+| Console on every page: `TypeError: Cannot read properties of null (reading 'querySelector')` from `color-modes.js`. | The theme dropdown (`[data-coreui-theme-value]` buttons) was removed from `_Layout`. | Put it back, or remove `color-modes.js` too. § 8.2. |
+| Login page flashes, then nothing; Network shows `POST /Home/Login` → 200 with `errorMessage: ""`, but `/Home/Index` redirects back to Login. | Cookie not set — usually the site runs on `http://localhost:PORT` but you are browsing a different host name, or third-party cookie blocking. | Browse exactly the URL IIS Express opened. |
+| Every login says `Invalid Username or Password!!`. | Seed not run, or the connection string points at a different server/database. | § 2.2 / § 2.3; confirm with `SELECT * FROM loginDemo.dbo.vw_Users` on the same instance. |
+| `Login failed for user 'sa'` / `Cannot open database "loginDemo"`. | Connection string credentials or instance name. | § 2.3. |
+| Build: `'loginDemoEntities' does not contain a definition for 'sp_InsertUserAccount'` (or another sproc). | Function import missing from the EDMX. | § 3.2. |
+| Runtime: `Procedure or function 'sp_InsertUserAccount' expects parameter '@ROLE'` or `has too many arguments specified`. | Function import generated from an older script version. | § 3.2 — delete and re-import the sproc. |
+| Runtime: `The data reader is incompatible` / `A member of the type … does not have a corresponding column` on a sproc call. | Function import's *Returns* is set to a scalar/entity instead of **None**. | § 3.2 step 3. |
+| Growl shows `An error occurred while executing the command definition. See the inner exception for details.` | A service catch uses `error.Message` instead of `error.GetBaseException().Message`. | § 5.2. |
+| Growl: `You cannot deactivate your own account.` | Expected — `sp_DeleteUser` guard. | Use a different admin account to deactivate this one. |
+| Modal opens but never closes after a successful save. | `HideModal` called with a wrong id, or the modal element is outside the `ng-show="main.ItemLoad"` wrapper. | Ids must match § 9.4 exactly. |
+| Modal closes but a dark backdrop stays on the page. | The page navigated (`window.location`) while a modal was open. | Call `HideModal(...)` before redirecting (as `Logout()` does). |
+| Sidebar group *Settings* never appears for admin. | `main.CurrentUser.Role` is not `'admin'` — check `/Home/GetCurrentUser` output; the DB value is case-sensitive in the Angular comparison. | Store roles in lowercase (the `CHK_UserRole` constraint only allows lowercase anyway). |
+| `Server Error in '/' Application` with `Padding is invalid and cannot be removed` after changing `Web.config`. | The `.ASPXAUTH` cookie was encrypted under a different machine key (config change, different project). | Delete the site's cookies in the browser. |
+| The keypress filter on First/Last Name does not work, but the regex message appears on Save. | jQuery not loaded before `UserAccounts.js`, or the inputs' `id` attributes changed. | § 7.4 order; ids `firstName` / `lastName`. |
