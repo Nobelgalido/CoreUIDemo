@@ -82,7 +82,7 @@ Both bundles and `color-modes.js` render in `<head>`, as OneMasaito renders all 
 
 ## 5. Layout anatomy — `index.html` → `_Layout.cshtml`
 
-The dist's `index.html` is 2,270 lines; the *shell* is about 60 of them. This is the skeleton, with everything that becomes Razor/Angular annotated. Full file: `BUILD_GUIDE.md` → [§ 8.2](BUILD_GUIDE.md#82-viewssharedlayoutcshtml).
+The dist's `index.html` is 2,270 lines; the *shell* is about 60 of them. This is the skeleton, with everything that becomes Razor/Angular annotated. Full file: `BUILD_GUIDE.md` → [§ 8.2](BUILD_GUIDE.md#82-viewsshared_layoutcshtml).
 
 ```html
 <div class="sidebar sidebar-dark sidebar-fixed border-end" id="sidebar">
