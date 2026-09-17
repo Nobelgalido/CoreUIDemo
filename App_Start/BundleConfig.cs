@@ -6,6 +6,8 @@ namespace CoreUIDemo
     {
         public static void RegisterBundles(BundleCollection bundles)
         {
+            
+
             // Standard MVC 5 template bundle — referenced by _Layout.cshtml.
             bundles.Add(new ScriptBundle("~/bundles/modernizr").Include(
                         "~/Scripts/modernizr-*"));
@@ -46,10 +48,7 @@ namespace CoreUIDemo
             // build error and nothing in the server log. Keep every bundle path under
             // ~/bundles/ and the collision can never happen.
             bundles.Add(new StyleBundle("~/bundles/css").Include(
-                      "~/Content/vendor/coreui/css/simplebar.css",
-                      "~/Content/vendor/coreui/css/style.css",
-                      "~/Content/vendor/coreui/css/icons-free.css",
-                      "~/Content/css/site-overrides.css"));
+                      "~/Content/*.css"));
 
             // Separate bundle for angular-growl's own CSS (same ~/bundles/ rule)
             bundles.Add(new StyleBundle("~/bundles/growl-css").Include(

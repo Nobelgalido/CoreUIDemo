@@ -1,0 +1,26 @@
+﻿<!DOCTYPE html>
+<html data-coreui-theme="light">
+<head>
+    <meta charset="utf-8" />
+    <title>@ViewBag.Title - CoreUIDemo</title>
+    <link href="~/Content/vendor/coreui/css/style.css" rel="stylesheet" />
+    <link href="~/Content/vendor/coreui/css/icons-free.css" rel="stylesheet" />
+    <link href="~/Content/css/site-overrides.css" rel="stylesheet" />
+</head>
+<body class="bg-body-tertiary min-vh-100 d-flex flex-row align-items-center">
+    <div class="container" style="max-width: 32rem">
+        <div class="card p-4">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <h1 class="h4">@ViewBag.Title</h1>
+                </div>
+                @RenderBody()
+            </div>
+        </div>
+    </div>
+
+    <script src="~/Scripts/jquery-3.7.1.min.js"></script>
+    <script src="~/Content/vendor/coreui/js/coreui.bundle.min.js"></script>
+    @RenderSection("scripts", required: false)
+</body>
+</html>

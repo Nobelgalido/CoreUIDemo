@@ -11,6 +11,7 @@ using CoreUIDemo.Models.ViewModels;
 
 namespace CoreUIDemo.Controllers
 {
+    [AllowAnonymous]
     public class AccountController : BaseController
     {
         [HttpGet]
