@@ -73,10 +73,11 @@ Three bundles, named exactly as OneMasaito's, registered in `App_Start/BundleCon
 | `~/bundles/scripts` | `jquery-{version}.js` → `coreui.bundle.min.js` → `simplebar.min.js` → `angular.min.js` → `angular-growl.min.js` | jQuery is used only by OneMasaito's keypress filters; **CoreUI before Angular** so the `coreui` global exists when controllers run; `angular-growl` registers a module on `angular`, so Angular first |
 | `~/bundles/angular` | `App.js` → `Login.js` → `UserAccounts.js` | `App.js` declares the root module the others depend on / are depended on by |
 
-Two rules that are easy to get wrong:
+Three rules that are easy to get wrong:
 
 1. **A bundle's virtual path must not be a real folder.** `~/Content/css` is a bundle; if a physical `Content/css/` directory exists, IIS's static-file handler wins and the page is served unstyled with no error. `BUILD_GUIDE.md` § 1 deletes that folder for this reason.
 2. **`color-modes.js` is not bundled.** It must run in `<head>` *before first paint*, otherwise a user who chose the dark theme sees a white flash on every navigation. `_Layout.cshtml` loads it with a plain `<script src="~/Scripts/js/color-modes.js">` between the styles and the script bundles.
+3. **`~/bundles/scripts` must have `Transforms.Clear()` called on it.** `coreui.bundle.min.js` is output by a modern build toolchain that the ~2013-era `Microsoft.Ajax.Utilities` JS minifier (`System.Web.Optimization`'s default transform) cannot parse — it throws an unhandled `NullReferenceException` the first time anything requests the bundle URL, rather than falling back the way the CSS minifier does. This happens **regardless of `BundleTable.EnableOptimizations`**, which only controls whether `@Scripts.Render(...)` links to the bundle URL or to each file individually — not whether the transform pipeline runs when that URL is actually requested. Since every file already in `~/bundles/scripts` is pre-minified, skipping the transform loses nothing. `BUILD_GUIDE.md` § 7.4 shows the fix; Appendix A has the crash signature if you ever hit it.
 
 Both bundles and `color-modes.js` render in `<head>`, as OneMasaito renders all of its scripts in `<head>`.
 

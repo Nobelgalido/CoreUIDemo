@@ -1,0 +1,162 @@
+﻿@{
+    ViewBag.Title = "User Accounts";
+}
+
+<div ng-controller="accountsController as vm">
+
+    <h1 class="h3 mb-2">Accounts</h1>
+
+    <div class="card mb-4" ng-init="Init()">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>
+                                <button class="btn btn-success" ng-click="NewAccount()">
+                                    <span class="icon-text-white-50">
+                                        <i class="cil-plus"></i>
+                                    </span>
+                                </button>
+                            </th>
+                            <th>UserName</th>
+                            <th>Name</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr ng-repeat="acc in vm.AccountList | filter: main.SearchBox">
+                            <td>
+                                <button class="btn btn-info" ng-click="EditAccount(acc)" title="Edit">
+                                    <span class="icon-text-white-50">
+                                        <i class="cil-pencil"></i>
+                                    </span>
+                                </button>
+                                <button class="btn btn-warning" ng-click="UpdatePassword(acc)" title="Reset Password">
+                                    <span class="icon-text-white-50">
+                                        <i class="cil-lock-locked"></i>
+                                    </span>
+                                </button>
+                                <button class="btn btn-danger" ng-click="UpdateStatus(acc)" ng-show="acc.IsActive" title="Deactivate">
+                                    <span class="icon-text-white-50">
+                                        <i class="cil-ban"></i>
+                                    </span>
+                                </button>
+                                <button class="btn btn-success" ng-click="UpdateStatus(acc)" ng-show="!acc.IsActive" title="Activate">
+                                    <span class="icon-text-white-50">
+                                        <i class="cil-check-circle"></i>
+                                    </span>
+                                </button>
+                            </td>
+                            <td>{{acc.Username}}</td>
+                            <td>{{acc.FullName}}</td>
+                            <td>{{acc.Role}}</td>
+                            <td ng-class="{'text-success': acc.IsActive, 'text-danger': !acc.IsActive}">{{ acc.IsActive ? 'Active' : 'Inactive' }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!--CRUD MODAL-->
+    <div class="modal fade" id="AccountModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">{{vm.ModalHeader}} Account</h4>
+                    <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Username</label>
+                        <input type="text" class="form-control" ng-model="vm.Modal.Username" ng-disabled="vm.ModalHeader === 'Edit'" />
+                    </div>
+
+                    <div class="mb-3" ng-show="vm.ModalHeader === 'New'">
+                        <label class="form-label">Password</label>
+                        <input type="password" class="form-control" ng-model="vm.Modal.Password" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">First Name</label>
+                        <input type="text" class="form-control" id="firstName" ng-model="vm.Modal.FirstName" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Last Name</label>
+                        <input type="text" class="form-control" id="lastName" ng-model="vm.Modal.LastName" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <select class="form-select" ng-model="vm.Modal.Role" ng-options="r for r in vm.RoleList"></select>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" ng-click="Save()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--END OF CRUD MODAL-->
+
+    <!--CHANGE PASSWORD MODAL-->
+    <div class="modal fade" id="ChangePasswordModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title">Reset Password - {{vm.Change.FullName}}</h4>
+                    <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">New Password</label>
+                        <input type="password" class="form-control" ng-model="vm.Change.NewPassword" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Confirm Password</label>
+                        <input type="password" class="form-control" ng-model="vm.Change.ConfirmPassword" />
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" ng-click="ChangePassword()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--END OF CHANGE PASSWORD MODAL-->
+
+    <!--UPDATE STATUS MODAL-->
+    <div class="modal fade" id="UpdateStatusModal" tabindex="-1" role="dialog" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h4 class="modal-title" ng-show="vm.Status.IsActive">Deactivate Account - {{vm.Status.FullName}}</h4>
+                    <h4 class="modal-title" ng-show="!vm.Status.IsActive">Activate Account - {{vm.Status.FullName}}</h4>
+                    <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
+                </div>
+
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Confirm Password</label>
+                        <input type="password" class="form-control" ng-model="vm.Status.ConfirmPassword" />
+                        <div class="form-text">Enter <b>your own</b> password to confirm this change.</div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" ng-click="SaveStatus()">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!--END OF UPDATE STATUS MODAL-->
+
+</div>

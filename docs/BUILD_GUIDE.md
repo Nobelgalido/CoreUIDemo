@@ -1235,13 +1235,23 @@ namespace CoreUIDemo
                       "~/Content/Site.css"
                       ));
 
-            bundles.Add(new ScriptBundle("~/bundles/scripts").Include(
+            // coreui.bundle.min.js is built by a modern toolchain whose output the ~2013-era
+            // Microsoft.Ajax.Utilities minifier (System.Web.Optimization's default JS transform)
+            // cannot parse — it throws a NullReferenceException instead of falling back, the way
+            // the CSS minifier does for unparseable CSS. Hitting the bundle URL runs the minify
+            // transform regardless of BundleTable.EnableOptimizations (that flag only controls
+            // whether Scripts.Render links the bundle vs. individual files) — so Transforms.Clear()
+            // is required here, not just #if DEBUG below. Every file in this bundle is already
+            // minified/production-ready, so skipping the transform costs nothing.
+            var scriptsBundle = new ScriptBundle("~/bundles/scripts").Include(
                 "~/Scripts/jquery-{version}.js",
                 "~/Content/vendor/@coreui/coreui/js/coreui.bundle.min.js",
                 "~/Content/vendor/simplebar/js/simplebar.min.js",
                 "~/Scripts/angular.min.js",
                 "~/Scripts/angular-growl.min.js"
-                ));
+                );
+            scriptsBundle.Transforms.Clear();
+            bundles.Add(scriptsBundle);
 
             bundles.Add(new ScriptBundle("~/bundles/angular").Include(
                 "~/App/App.js",
@@ -1259,11 +1269,12 @@ namespace CoreUIDemo
 }
 ```
 
-Three things to know:
+Four things to know:
 
 - **`~/Content/css` is a bundle *name*, and the physical folder `Content/css/` was deleted in § 1.** If that folder exists, IIS serves the folder (403/404) instead of the bundle and the whole site renders unstyled with no error anywhere. This is the reason § 1 deletes it. Keep it deleted.
 - **`Scripts/js/color-modes.js` is not in any bundle.** It has to run in `<head>` before first paint (it sets `data-coreui-theme` on `<html>` from `localStorage`); `_Layout.cshtml` loads it with a plain `<script>` tag (§ 8).
 - `free.min.css` references its fonts as `../fonts/CoreUI-Icons-Free.woff`. Bundling rewrites relative URLs to the bundle's virtual path, so the fonts must sit next to the css exactly as copied (`Content/vendor/@coreui/icons/fonts/`). Do not move them.
+- **`~/bundles/scripts`'s `Transforms.Clear()` is not optional.** Requesting a bundle URL directly always runs its transforms (minification) — `BundleTable.EnableOptimizations` only decides whether `@Scripts.Render(...)` *links to* the bundle URL or to each file individually, not whether the transform runs when that URL is hit. Without `Transforms.Clear()`, the first request to `~/bundles/scripts` throws an unhandled `NullReferenceException` from deep inside `Microsoft.Ajax.Utilities.JSParser` — confirmed by isolating `coreui.bundle.min.js` into its own bundle and hitting it directly; the old minifier cannot parse the modern syntax CoreUI's build outputs. Appendix A has the symptom if you ever remove this line while debugging something else.
 
 ⚠️ **DEVIATION** — `~/bundles/bootstrap` is gone (OneMasaito registers it and never renders it — CoreUI's bundle contains Bootstrap). DataTables, Chart.js, jquery-easing, moment, respond, angular-file-upload are gone (used by modules that do not exist here). The `#if DEBUG` optimisation switch is added so you get readable, unminified files while debugging.
 
@@ -2249,6 +2260,9 @@ The conversion is complete. `docs/ARCHITECTURE.md` is the reference from here on
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| Build error `Could not load file or assembly 'System.Web.Mvc, Version=X.Y.Z.0...'. The located assembly's manifest definition does not match the assembly reference.` (or the same for `EntityFramework`, `Microsoft.Web.Infrastructure`, `System.Web.Razor`/`WebPages`). | A pre-existing landmine, not something this guide's edits cause: `CoreUIDemo.csproj`'s `<Reference Include="…, Version=X.Y.Z.0…">` and `<HintPath>` can drift from what `packages.config` actually restores (this repo shipped with `System.Web.Mvc` declared at `5.2.9.0` and `Microsoft.Web.Infrastructure` at `2.0.0.0` while the restored packages were `5.2.7`/`1.0.0.0`) — MSBuild's reference resolver requires an *exact* version match and gives no build error for it, only a runtime one. | In `CoreUIDemo.csproj`, make every `<Reference Include="Name, Version=…">` match the assembly version actually in `packages\<PackageId>.<version>\lib\...\Name.dll` (open the dll's properties, or trust that the folder version usually *is* the assembly version for these packages), and make every `<HintPath>` point at that same folder. Also check `Views/Web.config` — its `<pages>`/`<host>` section for `System.Web.Mvc` has its own independent version string. |
+| Runtime `FileLoadException` / mismatched-version binding error at first page hit, after the build error above is fixed. | `Web.config`'s `<runtime><assemblyBinding>` `bindingRedirect` still points `newVersion` at the old declared version. | Update the matching `<bindingRedirect oldVersion="…" newVersion="…">` in `Web.config` to the real assembly version too. |
+| First hit of any page that renders `_Layout.cshtml` or `Login.cshtml` returns a 500 with `[NullReferenceException] Microsoft.Ajax.Utilities.JSParser.Parse… → System.Web.Optimization.JsMinify.Process → Bundle.GetBundleResponse`. | `~/bundles/scripts`'s `Transforms.Clear()` (§ 7.4) is missing, so `System.Web.Optimization` tries to minify `coreui.bundle.min.js` and the ~2013-era minifier cannot parse its modern JS syntax. | Add `scriptsBundle.Transforms.Clear();` before `bundles.Add(scriptsBundle);` for `~/bundles/scripts`, exactly as § 7.4 shows. |
 | Page renders completely unstyled; no error anywhere. | A physical `Content/css/` folder exists, so IIS serves the folder instead of the `~/Content/css` bundle. | Delete `Content/css/` (and its csproj entries). § 1.4 / § 7.4. |
 | Unstyled page, and DevTools shows 404 on `/Content/css`. | A CSS file listed in the bundle is not on disk or not included in the project — `StyleBundle` silently skips missing files, and if *all* are missing the bundle URL 404s. | Re-run § 7.1, then § 7.2 *Include In Project*. |
 | Icons show as empty squares. | Fonts not next to `free.min.css`, or fonts not included in the project. | `Content/vendor/@coreui/icons/fonts/CoreUI-Icons-Free.*` must exist and be included. |

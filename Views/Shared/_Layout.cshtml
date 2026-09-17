@@ -1,86 +1,151 @@
 ﻿<!DOCTYPE html>
 <html ng-app="app">
 <head>
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@ViewBag.Title - CoreUIDemo</title>
-    @Styles.Render("~/bundles/css")
-    @Styles.Render("~/bundles/growl-css")
-    @Scripts.Render("~/bundles/modernizr")
-    @* color-modes.js belongs HERE and nowhere else — in <head>, before first paint, and
-        NOT also inside ~/bundles/coreui at the bottom of the page. Loading it twice runs
-        its init twice against the same localStorage key and re-fires its theme listeners. *@
-    <script src="~/Content/vendor/coreui/js/color-modes.js"></script>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
+    <link href="~/Src/Image/favicon-32x32.png" rel="shortcut icon" type="image/png" />
+    <title>CoreUIDemo</title>
+    @Styles.Render("~/Content/css")
+    <script src="~/Scripts/js/color-modes.js"></script>
+    @Scripts.Render("~/bundles/scripts")
+    @Scripts.Render("~/bundles/angular")
 </head>
 <body>
-    <div ng-controller="MainController as main" ng-init="Init()">
+    <div ng-controller="mainController as main" ng-init="Init()">
         <div class="d-flex justify-content-center align-items-center vh-100" ng-hide="main.ItemLoad">
             <div class="loader"></div>
         </div>
         <div ng-show="main.ItemLoad">
             <div growl class="fading"></div>
 
-            <!-- Sidebar — trimmed to the Users module only, this app has no other modules in scope -->
+            <!-- Sidebar -->
             <div class="sidebar sidebar-dark sidebar-fixed border-end" id="sidebar">
                 <div class="sidebar-header border-bottom">
-                    <div class="sidebar-brand">CoreUIDemo</div>
+                    <div class="sidebar-brand me-auto">
+                        <img class="sidebar-brand-full" style="height:32px;" src="~/Src/Image/coreui.svg" alt="CoreUIDemo" />
+                        <img class="sidebar-brand-narrow" style="height:32px;" src="~/Src/Image/coreui.svg" alt="CoreUIDemo" />
+                    </div>
+                    <button class="btn-close d-lg-none" type="button" data-coreui-theme="dark" aria-label="Close"
+                            onclick="coreui.Sidebar.getOrCreateInstance(document.querySelector('#sidebar')).toggle()"></button>
                 </div>
-                <ul class="sidebar-nav" data-coreui="navigation">
-                    <li class="nav-item" ng-show="main.CurrentUser.Role === 'admin'">
-                        <a class="nav-link" href="@Url.Action("Index", "Users")">
-                            <i class="cil-user nav-icon"></i> Users
+                <ul class="sidebar-nav" data-coreui="navigation" data-simplebar>
+                    <!-- Nav Item - Dashboard -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="/Home/Index">
+                            <i class="nav-icon cil-speedometer"></i>
+                            Dashboard
                         </a>
                     </li>
+
+                    <!-- Heading -->
+                    <li class="nav-title">Modules</li>
+
+                    <!-- Nav Group - Settings (admin only) -->
+                    <li class="nav-group" ng-show="main.CurrentUser.Role === 'admin'">
+                        <a class="nav-link nav-group-toggle" href="#">
+                            <i class="nav-icon cil-settings"></i>
+                            Settings
+                        </a>
+                        <ul class="nav-group-items compact">
+                            <li class="nav-item">
+                                <a class="nav-link" href="/Settings/UserAccounts">
+                                    <i class="nav-icon cil-people"></i>
+                                    User Account
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
                 </ul>
+                <div class="sidebar-footer border-top d-none d-md-flex">
+                    <button class="sidebar-toggler" type="button" data-coreui-toggle="unfoldable"></button>
+                </div>
             </div>
             <!-- End of Sidebar -->
 
+            <!-- Content Wrapper -->
             <div class="wrapper d-flex flex-column min-vh-100">
-                <!-- Header -->
+
+                <!-- Topbar -->
                 <header class="header header-sticky p-0 mb-4">
                     <div class="container-fluid border-bottom px-4">
-                        <button class="header-toggler" type="button"
-                                onclick="coreui.Sidebar.getInstance(document.querySelector('#sidebar')).toggle()">
-                            <i class="cil-menu icon icon-lg"></i>
+                        <button class="header-toggler" type="button" style="margin-inline-start: -14px"
+                                onclick="coreui.Sidebar.getOrCreateInstance(document.querySelector('#sidebar')).toggle()">
+                            <i class="icon icon-lg cil-menu"></i>
                         </button>
-                        <span class="navbar-brand mb-0 h1 ms-3">@ViewBag.Title</span>
 
+                        <div class="input-group ms-3" style="max-width:500px;">
+                            <input type="text" class="form-control" placeholder="Search for..."
+                                   aria-label="Search" ng-model="main.SearchBox">
+                            <span class="input-group-text"><i class="cil-search"></i></span>
+                        </div>
+
+                        <!-- Topbar Navbar -->
                         <ul class="header-nav ms-auto">
+                            <!-- Theme switcher (required by color-modes.js — see COREUI_GUIDE §9) -->
                             <li class="nav-item dropdown">
-                                <a class="nav-link py-0 pe-0 d-flex align-items-center" data-coreui-toggle="dropdown" href="#" role="button">
-                                    <span class="me-2 small text-body-secondary">{{main.CurrentUser.FirstName}} {{main.CurrentUser.LastName}}</span>
-                                    <span class="badge bg-secondary">{{main.CurrentUser.Role}}</span>
+                                <button class="btn btn-link nav-link py-2 px-2 d-flex align-items-center" type="button"
+                                        aria-expanded="false" data-coreui-toggle="dropdown">
+                                    <span class="theme-icon-active">Theme</span>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end" style="--cui-dropdown-min-width: 8rem">
+                                    <li><button class="dropdown-item" type="button" data-coreui-theme-value="light">Light</button></li>
+                                    <li><button class="dropdown-item" type="button" data-coreui-theme-value="dark">Dark</button></li>
+                                    <li><button class="dropdown-item active" type="button" data-coreui-theme-value="auto">Auto</button></li>
+                                </ul>
+                            </li>
+
+                            <li class="nav-item py-1">
+                                <div class="vr h-100 mx-2 text-body text-opacity-75"></div>
+                            </li>
+
+                            <!-- Nav Item - User Information -->
+                            <li class="nav-item dropdown">
+                                <a class="nav-link py-0 pe-0 d-flex align-items-center" data-coreui-toggle="dropdown" href="#" role="button"
+                                   aria-haspopup="true" aria-expanded="false">
+                                    <span class="me-2 d-none d-lg-inline text-body-secondary small">{{main.CurrentUser.FirstName}} {{main.CurrentUser.LastName}}</span>
+                                    <i class="icon icon-lg cil-user"></i>
                                 </a>
+                                <!-- Dropdown - User Information -->
                                 <div class="dropdown-menu dropdown-menu-end pt-0">
                                     <div class="dropdown-header bg-body-tertiary text-body-secondary fw-semibold rounded-top mb-2">Account</div>
-                                    <a class="dropdown-item" href="#" data-coreui-toggle="modal" data-coreui-target="#PasswordModal">
-                                        <i class="cil-lock-locked me-2"></i> Change Password
+                                    <a class="dropdown-item" href="#" data-coreui-toggle="modal" data-coreui-target="#PasswordModal" ng-click="OpenPasswordModal()">
+                                        <i class="cil-lock-locked me-2"></i>
+                                        Change Password
                                     </a>
                                     <div class="dropdown-divider"></div>
                                     <a class="dropdown-item" href="#" data-coreui-toggle="modal" data-coreui-target="#logoutModal">
-                                        <i class="cil-account-logout me-2"></i> Logout
+                                        <i class="cil-account-logout me-2"></i>
+                                        Logout
                                     </a>
                                 </div>
                             </li>
                         </ul>
                     </div>
                 </header>
-                <!-- End of Header -->
+                <!-- End of Topbar -->
 
+                <!-- Begin Page Content -->
                 <div class="body flex-grow-1">
-                    <div class="container-fluid">
+                    <div class="container-fluid px-4">
                         @RenderBody()
                     </div>
                 </div>
+                <!-- End of Page Content -->
 
+                <!-- Footer -->
                 <footer class="footer px-4">
-                    <div><span class="text-primary"><b>CoreUIDemo &mdash; learning replica, not for production use</b></span></div>
+                    <div><span class="text-primary"><b>&copy; CoreUIDemo 2026. Learning replica of the OneMasaito user module.</b></span></div>
                 </footer>
-            </div>
+                <!-- End of Footer -->
 
-            <!-- Logout Modal -->
-            <div class="modal fade" id="logoutModal" tabindex="-1" aria-labelledby="logoutModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered">
+            </div>
+            <!-- End of Content Wrapper -->
+
+            <!-- Logout Modal-->
+            <div class="modal fade" id="logoutModal" tabindex="-1" role="dialog" aria-labelledby="logoutModalLabel" aria-hidden="true">
+                <div class="modal-dialog" role="document">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title" id="logoutModalLabel">Ready to Leave?</h5>
@@ -95,18 +160,15 @@
                 </div>
             </div>
 
-            <!-- Change Password Modal -->
-            <div class="modal fade" id="PasswordModal" tabindex="-1" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered">
+            <!--Change Password Modal-->
+            <div class="modal fade" id="PasswordModal" tabindex="-1" role="dialog" aria-hidden="true">
+                <div class="modal-dialog">
                     <div class="modal-content">
                         <div class="modal-header">
                             <h5 class="modal-title">Change Password</h5>
                             <button class="btn-close" type="button" data-coreui-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
-                            <div class="alert alert-danger" ng-if="main.PasswordErrors.length">
-                                <div ng-repeat="e in main.PasswordErrors">{{e}}</div>
-                            </div>
                             <div class="mb-3">
                                 <label class="form-label">Current Password</label>
                                 <input type="password" class="form-control" ng-model="main.ChangePassword.CurrentPassword" />
@@ -115,9 +177,13 @@
                                 <label class="form-label">New Password</label>
                                 <input type="password" class="form-control" ng-model="main.ChangePassword.NewPassword" />
                             </div>
+                            <div class="mb-3">
+                                <label class="form-label">Confirm Password</label>
+                                <input type="password" class="form-control" ng-model="main.ChangePassword.ConfirmPassword" />
+                            </div>
                         </div>
                         <div class="modal-footer">
-                            <button class="btn btn-primary" ng-click="ChangePassword(main.ChangePassword)" ng-disabled="main.PasswordSaving">Change Password</button>
+                            <button class="btn btn-primary" ng-click="ChangePassword(main.ChangePassword)">Change Password</button>
                             <button class="btn btn-secondary" data-coreui-dismiss="modal">Cancel</button>
                         </div>
                     </div>
@@ -125,12 +191,5 @@
             </div>
         </div>
     </div>
-
-    @Scripts.Render("~/bundles/jquery")
-    @Scripts.Render("~/bundles/jqueryval")
-    @Scripts.Render("~/bundles/coreui")
-    @Scripts.Render("~/bundles/angular")
-    @Scripts.Render("~/bundles/app")
-    @RenderSection("scripts", required: false)
 </body>
 </html>
