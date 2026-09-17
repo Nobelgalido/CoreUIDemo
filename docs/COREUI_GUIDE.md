@@ -53,7 +53,7 @@ Content/
   vendor/simplebar/js/simplebar.min.js
   vendor/growl/angular-growl.min.css         (same file as OneMasaito's)
 Scripts/
-  jquery-3.7.1.min.js                        (NuGet jQuery)
+  jquery-3.7.0.js / .min.js                  (NuGet jQuery — referenced as jquery-{version}.js in the bundle)
   angular.min.js                             (NuGet angularjs 1.8.2)
   angular-growl.min.js                       (copied from OneMasaito / angular-growl-v2 0.7.3)
   js/color-modes.js                          (dist js/color-modes.js)
@@ -70,7 +70,7 @@ Three bundles, named exactly as OneMasaito's, registered in `App_Start/BundleCon
 | Bundle | Contents, in order | Why this order |
 |---|---|---|
 | `~/Content/css` | `style.css` → `free.min.css` → `simplebar.css` → `angular-growl.min.css` → `Site.css` | Theme first; `Site.css` last so its rules win |
-| `~/bundles/scripts` | `jquery-3.7.1.min.js` → `coreui.bundle.min.js` → `simplebar.min.js` → `angular.min.js` → `angular-growl.min.js` | jQuery is used only by OneMasaito's keypress filters; **CoreUI before Angular** so the `coreui` global exists when controllers run; `angular-growl` registers a module on `angular`, so Angular first |
+| `~/bundles/scripts` | `jquery-{version}.js` → `coreui.bundle.min.js` → `simplebar.min.js` → `angular.min.js` → `angular-growl.min.js` | jQuery is used only by OneMasaito's keypress filters; **CoreUI before Angular** so the `coreui` global exists when controllers run; `angular-growl` registers a module on `angular`, so Angular first |
 | `~/bundles/angular` | `App.js` → `Login.js` → `UserAccounts.js` | `App.js` declares the root module the others depend on / are depended on by |
 
 Two rules that are easy to get wrong:

@@ -1203,6 +1203,8 @@ Replace the MVC template's `Site.css` with the loader spinner that OneMasaito's 
 
 Same three bundle names as OneMasaito. Order inside `~/bundles/scripts` matters: jQuery first (the keypress filters in § 9 use it), then CoreUI (so the `coreui` global exists before any Angular controller runs), then Angular, then angular-growl (which registers a module on `angular`).
 
+jQuery is referenced as `~/Scripts/jquery-{version}.js` rather than by an exact file name: the repo currently ships `jquery-3.7.0.js` even though `packages.config` says 3.7.1, and a bundle entry naming a file that is not on disk is skipped **silently** (no build error, no 404 in the console — just `$ is not defined` later). The `{version}` wildcard matches whichever version is installed and picks the `.min` file automatically when `EnableOptimizations` is true.
+
 ```csharp
 using System.Web;
 using System.Web.Optimization;
@@ -1234,7 +1236,7 @@ namespace CoreUIDemo
                       ));
 
             bundles.Add(new ScriptBundle("~/bundles/scripts").Include(
-                "~/Scripts/jquery-3.7.1.min.js",
+                "~/Scripts/jquery-{version}.js",
                 "~/Content/vendor/@coreui/coreui/js/coreui.bundle.min.js",
                 "~/Content/vendor/simplebar/js/simplebar.min.js",
                 "~/Scripts/angular.min.js",
@@ -1299,6 +1301,7 @@ namespace CoreUIDemo
 - `Build → Rebuild` — 0 errors.
 - In Solution Explorer, `Content/build/css/style.css`, `Content/vendor/@coreui/coreui/js/coreui.bundle.min.js`, `Scripts/angular.min.js`, `Scripts/angular-growl.min.js`, `Scripts/js/color-modes.js`, `Src/Image/coreui.svg` all appear **without** the "not included" dotted icon.
 - `Content/css` does **not** exist on disk.
+- `Scripts/` contains exactly one `jquery-<version>.js` (delete any second version, or the `{version}` wildcard would include both).
 
 🔍 **GIT CHECKPOINT 7**
 

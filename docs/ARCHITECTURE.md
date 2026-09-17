@@ -39,7 +39,7 @@ Every source file, what it is for, and the OneMasaito file it mirrors.
 | `Helpers/UniversalHelpers.cs` | `CurrentUser`: cookie → ticket → DB row | `Helpers/UniversalHelpers.cs` |
 | `Models/LoginDemoEntities.edmx` (+ generated) | EF6 context `loginDemoEntities`, entities `USERS_ACCOUNTS`, `vw_Users`, four function imports | `Models/OneMasaitoEntities.edmx` (`OneMasaito_LiveEntities`) |
 | `Models/UserModel.cs` | `UserModel` DTO + `ChangePasswordModel` | `Models/UserModel.cs` |
-| `Scripts/angular.min.js`, `angular-growl.min.js`, `jquery-3.7.1.min.js` | Libraries | same |
+| `Scripts/angular.min.js`, `angular-growl.min.js`, `jquery-3.7.0.js` (bundled as `jquery-{version}.js`) | Libraries | same |
 | `Scripts/js/color-modes.js` | Theme switcher (loaded in `<head>`, unbundled) | — |
 | `Services/AccountService.cs` | Builds / clears the FormsAuthentication cookie | `Services/AccountService.cs` |
 | `Services/UserService.cs` | All user queries and writes; server-side validation | `Services/UserService.cs` |
