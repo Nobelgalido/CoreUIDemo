@@ -17,3 +17,6 @@ Web.ConnectionStrings.config
 # OS files
 .DS_Store
 Thumbs.db
+# Claude Code local state
+.claude/.session-start
+.claude/settings.local.json
