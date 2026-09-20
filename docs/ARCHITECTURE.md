@@ -43,7 +43,7 @@ Every source file, what it is for, and the OneMasaito file it mirrors.
 | `Scripts/js/color-modes.js` | Theme switcher (loaded in `<head>`, unbundled) | — |
 | `Services/AccountService.cs` | Builds / clears the FormsAuthentication cookie | `Services/AccountService.cs` |
 | `Services/UserService.cs` | All user queries and writes; server-side validation | `Services/UserService.cs` |
-| `Src/Image/` | Logo, favicon | `Src/Image/` |
+| `Src/Image/` | Masaito logo + mark SVGs (`-light` for the login card and favicon, `-dark` for the sidebar) | `Src/Image/` |
 | `Views/Home/Login.cshtml` | Login page (`Layout = null`, `ng-app="login"`) | `Views/Home/Login.cshtml` |
 | `Views/Home/Index.cshtml` | Dashboard placeholder | `Views/Home/Index.cshtml` |
 | `Views/Settings/UserAccounts.cshtml` | Accounts grid + 3 modals | `Views/Settings/UserAccounts.cshtml` |

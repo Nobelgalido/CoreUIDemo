@@ -1143,6 +1143,7 @@ From the web project folder, in PowerShell:
 ```powershell
 $dist = "..\coreui-free-bootstrap-admin-template-v5.5.0-dist"
 $om   = "..\..\OneMasaito\OneMasaito"
+$logo = "..\MasaitoLogo"
 
 New-Item -ItemType Directory -Force Content\build\css, Content\vendor\@coreui\coreui\js, Content\vendor\@coreui\icons\css, Content\vendor\@coreui\icons\fonts, Content\vendor\simplebar\css, Content\vendor\simplebar\js, Content\vendor\growl, Scripts\js, Src\Image | Out-Null
 
@@ -1153,8 +1154,10 @@ Copy-Item "$dist\vendors\@coreui\icons\fonts\CoreUI-Icons-Free.*"  Content\vendo
 Copy-Item "$dist\vendors\simplebar\css\simplebar.css"              Content\vendor\simplebar\css\
 Copy-Item "$dist\vendors\simplebar\js\simplebar.min.js"            Content\vendor\simplebar\js\
 Copy-Item "$dist\js\color-modes.js*"                               Scripts\js\
-Copy-Item "$dist\assets\brand\coreui.svg"                          Src\Image\
-Copy-Item "$dist\assets\favicon\favicon-32x32.png"                 Src\Image\
+Copy-Item "$logo\masaito-logo-light-gradient.svg"                  Src\Image\
+Copy-Item "$logo\masaito-logo-dark-gradient.svg"                   Src\Image\
+Copy-Item "$logo\masaito-mark-light-gradient.svg"                  Src\Image\
+Copy-Item "$logo\masaito-mark-dark-gradient.svg"                   Src\Image\
 Copy-Item "$om\Scripts\angular-growl.min.js"                       Scripts\
 Copy-Item "$om\Content\vendor\growl\angular-growl.min.css"         Content\vendor\growl\
 ```
@@ -1310,7 +1313,7 @@ namespace CoreUIDemo
 
 ✅ **VERIFY**
 - `Build → Rebuild` — 0 errors.
-- In Solution Explorer, `Content/build/css/style.css`, `Content/vendor/@coreui/coreui/js/coreui.bundle.min.js`, `Scripts/angular.min.js`, `Scripts/angular-growl.min.js`, `Scripts/js/color-modes.js`, `Src/Image/coreui.svg` all appear **without** the "not included" dotted icon.
+- In Solution Explorer, `Content/build/css/style.css`, `Content/vendor/@coreui/coreui/js/coreui.bundle.min.js`, `Scripts/angular.min.js`, `Scripts/angular-growl.min.js`, `Scripts/js/color-modes.js`, `Src/Image/masaito-logo-dark-gradient.svg` all appear **without** the "not included" dotted icon.
 - `Content/css` does **not** exist on disk.
 - `Scripts/` contains exactly one `jquery-<version>.js` (delete any second version, or the `{version}` wildcard would include both).
 
@@ -1354,7 +1357,7 @@ Structure (top to bottom): head → `mainController` wrapper with loader → gro
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
-    <link href="~/Src/Image/favicon-32x32.png" rel="shortcut icon" type="image/png" />
+    <link href="~/Src/Image/masaito-mark-light-gradient.svg" rel="icon" type="image/svg+xml" />
     <title>CoreUIDemo</title>
     @Styles.Render("~/Content/css")
     <script src="~/Scripts/js/color-modes.js"></script>
@@ -1373,8 +1376,8 @@ Structure (top to bottom): head → `mainController` wrapper with loader → gro
             <div class="sidebar sidebar-dark sidebar-fixed border-end" id="sidebar">
                 <div class="sidebar-header border-bottom">
                     <div class="sidebar-brand me-auto">
-                        <img class="sidebar-brand-full" style="height:32px;" src="~/Src/Image/coreui.svg" alt="CoreUIDemo" />
-                        <img class="sidebar-brand-narrow" style="height:32px;" src="~/Src/Image/coreui.svg" alt="CoreUIDemo" />
+                        <img class="sidebar-brand-full" style="height:32px;" src="~/Src/Image/masaito-logo-dark-gradient.svg" alt="Masaito Development Corporation" />
+                        <img class="sidebar-brand-narrow" style="height:32px;" src="~/Src/Image/masaito-mark-dark-gradient.svg" alt="Masaito" />
                     </div>
                     <button class="btn-close d-lg-none" type="button" data-coreui-theme="dark" aria-label="Close"
                             onclick="coreui.Sidebar.getOrCreateInstance(document.querySelector('#sidebar')).toggle()"></button>
@@ -1570,7 +1573,7 @@ What is OneMasaito's and what is CoreUI's:
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no" />
-    <link href="~/Src/Image/favicon-32x32.png" rel="shortcut icon" type="image/png" />
+    <link href="~/Src/Image/masaito-mark-light-gradient.svg" rel="icon" type="image/svg+xml" />
 
     @Styles.Render("~/Content/css")
     @Scripts.Render("~/bundles/scripts")
@@ -1584,7 +1587,7 @@ What is OneMasaito's and what is CoreUI's:
     <div class="container" style="max-width: 32rem">
         <div class="d-flex flex-column gap-4">
             <div class="text-center">
-                <img style="height:48px;" src="~/Src/Image/coreui.svg" alt="CoreUIDemo" />
+                <img style="height:48px;" src="~/Src/Image/masaito-logo-light-gradient.svg" alt="Masaito Development Corporation" />
             </div>
 
             <div class="card p-4">

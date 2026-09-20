@@ -182,8 +182,10 @@
     <Content Include="Content\vendor\simplebar\css\simplebar.css" />
     <Content Include="Content\vendor\simplebar\js\simplebar.min.js" />
     <Content Include="Content\vendor\growl\angular-growl.min.css" />
-    <Content Include="Src\Image\coreui.svg" />
-    <Content Include="Src\Image\favicon-32x32.png" />
+    <Content Include="Src\Image\masaito-logo-dark-gradient.svg" />
+    <Content Include="Src\Image\masaito-logo-light-gradient.svg" />
+    <Content Include="Src\Image\masaito-mark-dark-gradient.svg" />
+    <Content Include="Src\Image\masaito-mark-light-gradient.svg" />
     <Content Include="Scripts\angular.min.js" />
     <Content Include="Scripts\angular.min.js.map" />
     <Content Include="Scripts\angular-growl.min.js" />

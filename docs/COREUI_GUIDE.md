@@ -23,8 +23,8 @@ The dist is a set of static HTML demo pages plus the compiled assets they share.
 | `vendors/@coreui/icons/css/brand.min.css`, `flag.min.css` (+ fonts), `svg/` | Brand logos, flags, SVG sprite editions | No |
 | `vendors/simplebar/{css,js}` | Custom scrollbar the sidebar uses (`data-simplebar` on `ul.sidebar-nav`) | **Yes** → `Content/vendor/simplebar/` |
 | `vendors/chart.js`, `vendors/@coreui/chartjs`, `vendors/@coreui/utils` | Charts for the demo dashboard | No |
-| `assets/brand/coreui.svg` | The logo used in the sidebar and login card | **Yes** → `Src/Image/coreui.svg` |
-| `assets/favicon/favicon-32x32.png` | Favicon | **Yes** → `Src/Image/favicon-32x32.png` |
+| `assets/brand/coreui.svg` | The CoreUI logo in the sidebar and login card | No — replaced by the Masaito SVGs from `..\MasaitoLogo\` (see below) |
+| `assets/favicon/favicon-32x32.png` | Favicon | No — replaced by `Src/Image/masaito-mark-light-gradient.svg` (`rel="icon" type="image/svg+xml"`) |
 | `assets/img/*`, `assets/icons/*` | Demo avatars, backgrounds, PWA icons | No |
 | `index.html` | The dashboard — **the reference for `_Layout.cshtml`** (§ 5) | Read, not copied |
 | `authentication/login.html` | **The reference for `Login.cshtml`** (§ 6) | Read, not copied |
@@ -58,7 +58,8 @@ Scripts/
   angular-growl.min.js                       (copied from OneMasaito / angular-growl-v2 0.7.3)
   js/color-modes.js                          (dist js/color-modes.js)
 Src/Image/
-  coreui.svg, favicon-32x32.png              ≙ OneMasaito Src/Image/OMLogo*.png, MDC.ico
+  masaito-logo-{light,dark}-gradient.svg     ≙ OneMasaito Src/Image/OMLogo*.png (full wordmark; light = dark ink for the login card, dark = white ink for the sidebar)
+  masaito-mark-{light,dark}-gradient.svg     ≙ OneMasaito Src/Image/MDC.ico       (square mark; light = favicon, dark = collapsed sidebar brand)
 ```
 
 The `fonts/` folder **must** stay beside `css/free.min.css`: the stylesheet references `../fonts/CoreUI-Icons-Free.woff`, and ASP.NET bundling rewrites that relative URL against the bundle's virtual path only when the original relative relationship holds.
@@ -88,9 +89,8 @@ The dist's `index.html` is 2,270 lines; the *shell* is about 60 of them. This is
 ```html
 <div class="sidebar sidebar-dark sidebar-fixed border-end" id="sidebar">
   <div class="sidebar-header border-bottom">
-    <div class="sidebar-brand me-auto">  <!-- SVG logos → <img src="~/Src/Image/coreui.svg"> ×2
-                                              (.sidebar-brand-full shown when expanded,
-                                               .sidebar-brand-narrow when collapsed) -->
+    <div class="sidebar-brand me-auto">  <!-- SVG logos → <img src="~/Src/Image/masaito-logo-dark-gradient.svg"> (.sidebar-brand-full, shown when expanded)
+                                              and <img src="~/Src/Image/masaito-mark-dark-gradient.svg"> (.sidebar-brand-narrow, shown when collapsed) -->
     </div>
     <button class="btn-close d-lg-none" …>  <!-- mobile close; onclick uses coreui.Sidebar -->
   </div>
@@ -132,7 +132,7 @@ The dist's `index.html` is 2,270 lines; the *shell* is about 60 of them. This is
 | Dist region | In `_Layout.cshtml` |
 |---|---|
 | Everything above `div.sidebar` | OneMasaito's wrapper: `<div ng-controller="mainController as main" ng-init="Init()">`, the `.loader` div (`ng-hide="main.ItemLoad"`), a `<div ng-show="main.ItemLoad">` around the whole shell, `<div growl class="fading">` |
-| Sidebar brand SVGs | Two `<img>` tags (full / narrow) pointing at `~/Src/Image/coreui.svg` |
+| Sidebar brand SVGs | Two `<img>` tags: `.sidebar-brand-full` → `~/Src/Image/masaito-logo-dark-gradient.svg`, `.sidebar-brand-narrow` → `~/Src/Image/masaito-mark-dark-gradient.svg` (the `-dark` variants are white ink for `sidebar-dark`) |
 | Nav items | `Dashboard` (`/Home/Index`) and a `Settings` group with `User Account` (`/Settings/UserAccounts`), the group gated by `ng-show` |
 | Header icon links | OneMasaito's search `input-group`, `ng-model="main.SearchBox"` |
 | Theme dropdown | Kept, with text labels instead of SVG icons (§ 9) |
