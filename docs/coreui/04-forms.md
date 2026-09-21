@@ -296,7 +296,7 @@ It runs once when the controller is constructed, which works because the modal's
 
 **`Views/Home/Login.cshtml`** — floated variant of the real form
 ```html
-<form class="row gap-3" autocomplete="off" novalidate>
+<form class="row gap-3" autocomplete="off" novalidate ng-submit="TryLogin()">
     <div class="form-floating">
         <input class="form-control" id="username" type="text" placeholder="Username" ng-model="vm.Username" />
         <label for="username">Username</label>
@@ -306,7 +306,7 @@ It runs once when the controller is constructed, which works because the modal's
         <label for="password">Password</label>
     </div>
     <div>
-        <button class="btn btn-primary w-100" type="button" ng-click="TryLogin()">Login</button>
+        <button class="btn btn-primary w-100" type="submit">Login</button>
     </div>
 </form>
 ```

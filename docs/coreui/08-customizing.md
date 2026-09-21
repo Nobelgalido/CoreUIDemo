@@ -174,7 +174,7 @@ Choosing the colour from data is one `ng-class` with a ternary — the class str
 <span class="badge" ng-class="acc.IsActive ? 'text-bg-success' : 'text-bg-danger'">{{ acc.IsActive ? 'Active' : 'Inactive' }}</span>
 ```
 
-Today's `UserAccounts.cshtml` uses the same boolean on the plain-text cell (`ng-class="{'text-success': acc.IsActive, 'text-danger': !acc.IsActive}"`, line 55); the `text-bg-*` version above turns it into a pill instead. Any class in this table can be swapped the same way — `btn-outline-danger` for a delete button that becomes `btn-danger` once a confirmation is pending, `table-warning` on a `tr` whose record is locked.
+Today's `UserAccounts.cshtml` uses the same boolean on the plain-text cell (`ng-class="{'text-success': acc.IsActive, 'text-danger': !acc.IsActive}"`, line 52); the `text-bg-*` version above turns it into a pill instead. Any class in this table can be swapped the same way — `btn-outline-danger` for a delete button that becomes `btn-danger` once a confirmation is pending, `table-warning` on a `tr` whose record is locked.
 
 ## Page width
 

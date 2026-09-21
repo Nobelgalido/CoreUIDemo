@@ -168,6 +168,7 @@
                             <h5 class="modal-title">Change Password</h5>
                             <button class="btn-close" type="button" data-coreui-dismiss="modal" aria-label="Close"></button>
                         </div>
+                        <form ng-submit="ChangePassword(main.ChangePassword)" autocomplete="off" novalidate>
                         <div class="modal-body">
                             <div class="mb-3">
                                 <label class="form-label">Current Password</label>
@@ -183,9 +184,10 @@
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button class="btn btn-primary" ng-click="ChangePassword(main.ChangePassword)">Change Password</button>
-                            <button class="btn btn-secondary" data-coreui-dismiss="modal">Cancel</button>
+                            <button class="btn btn-primary" type="submit">Change Password</button>
+                            <button class="btn btn-secondary" type="button" data-coreui-dismiss="modal">Cancel</button>
                         </div>
+                        </form>
                     </div>
                 </div>
             </div>

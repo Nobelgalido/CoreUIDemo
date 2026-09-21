@@ -44,7 +44,7 @@ OneMasaito hand-copies its theme: the compiled SB Admin 2 bundle lives in `Conte
 
 ```
 Content/
-  Site.css                                   ← .loader spinner + .icon-text-white-50 (OneMasaito's sb-admin-2.css extras) + growl BS4 shim (§ 10)
+  Site.css                                   ← .loader spinner (OneMasaito's sb-admin-2.css extra) + growl BS4 shim (§ 10)
   build/css/style.css                        ≙ OneMasaito Content/build/css/sb-admin-2.css
   vendor/@coreui/coreui/js/coreui.bundle.min.js   ≙ Content/vendor/bootstrap/js/bootstrap.bundle.min.js
   vendor/@coreui/icons/css/free.min.css      ≙ Content/vendor/fontawesome-free/css/all.min.css
@@ -153,7 +153,7 @@ Kept from the dist: the outer `bg-body-tertiary min-vh-100 d-flex flex-row align
 
 Removed because OneMasaito's login has none of it: the email-type input, the show-password eye button and its tooltip, "I forgot password", "Remember me", the "or" divider, "Login with Google / Apple", "Need an account? Sign up".
 
-Changed: the button is `type="button"` with `ng-click="TryLogin()"` (the form has no `action`; Enter is handled by `Login.js`); inputs carry `ng-model="vm.Username"` / `vm.Password`; a `<div growl class="fading">` sits at the top of `<body>`; the version line at the bottom is OneMasaito's.
+Changed: the form carries `ng-submit="TryLogin()"` and the button is `type="submit"` (the form has no `action`, so `ngSubmit` prevents the default navigation and both the button and Enter call the controller — no jQuery `keypress` handler needed); inputs carry `ng-model="vm.Username"` / `vm.Password`; a `<div growl class="fading">` sits at the top of `<body>`; the version line at the bottom is OneMasaito's.
 
 Why `Layout = null` and `ng-app="login"`: OneMasaito's login page is a self-contained HTML document with its own Angular module; it does not share the layout (there is no sidebar to show before you log in) and does not load `mainController` (which would immediately call `/Home/GetCurrentUser`). The same structure is kept.
 
@@ -175,7 +175,7 @@ Why `data-coreui-theme="light"` on `<html>`: this page does not load `color-mode
 | `bootstrap.Tooltip` / `new bootstrap.Modal(...)` | `coreui.Tooltip` / `new coreui.Modal(...)` — `bootstrap.*` is `undefined` |
 | Popper loaded separately | Included in `coreui.bundle.min.js` |
 
-jQuery is still loaded (first in `~/bundles/scripts`) because OneMasaito's `UserAccounts.js` uses `$("#firstName").keypress(...)` and `Login.js` uses `$(document).on('keypress', ...)`. CoreUI itself never touches it.
+jQuery is still loaded (first in `~/bundles/scripts`) only because OneMasaito's `UserAccounts.js` uses `$("#firstName").keypress(...)` / `$('#lastName').keypress(...)` for the letters-only filters. (OneMasaito's `Login.js` also used `$(document).on('keypress', ...)` for Enter; CoreUIDemo replaces that with `ng-submit` on the form.) CoreUI itself never touches it.
 
 Where the two modal helpers live and why they are global: `BUILD_GUIDE.md` → [§ 9.1](BUILD_GUIDE.md#91-appappjs).
 
@@ -193,6 +193,8 @@ Icons used by CoreUIDemo (every one verified present in `free.min.css`):
 | Grid: New / Edit / Reset Password / Deactivate / Activate | `cil-plus` / `cil-pencil` / `cil-lock-locked` / `cil-ban` / `cil-check-circle` |
 
 To find others, open `..\coreui-free-bootstrap-admin-template-v5.5.0-dist\icons\coreui-icons-free.html` in a browser — it lists every free icon with its class name. Font Awesome (`fas fa-*`, OneMasaito's icon set) is not vendored; if you prefer it, add `Content/vendor/fontawesome-free/` from OneMasaito to `~/Content/css` and swap the class names.
+
+The grid's action buttons are CoreUI ghost buttons — `btn-ghost-secondary` for New / Edit / Reset Password, `btn-ghost-danger` for Deactivate, `btn-ghost-success` for Activate — with a bare `<i class="cil-*">` inside: no fill or border at rest, a light tint on hover. OneMasaito's solid `btn-success` / `btn-info` / `btn-warning` / `btn-danger` and its `icon-text-white-50` half-white icon helper are gone (a half-white icon is invisible on a transparent button). The same header cell carries the *Active | Inactive | All* `btn-group btn-group-sm` of `btn-outline-secondary` segments bound to `vm.StatusFilter`; the selected segment gets `active`.
 
 ## 9. Dark mode
 

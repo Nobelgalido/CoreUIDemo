@@ -7,6 +7,13 @@
 
         vm.ChangePassword = {};
 
+        vm.StatusFilter = "active";
+
+        $scope.StatusMatch = function (acc) {
+            if (vm.StatusFilter === "all") return true;
+            return vm.StatusFilter === "active" ? acc.IsActive : !acc.IsActive;
+        };
+
         var namePattern = /^[a-zA-Z ]+$/;
 
         $scope.Init = function () {
@@ -38,28 +45,28 @@
 
         $scope.Save = function () {
 
-            if (vm.Modal.Username == "" || vm.Modal.Username == null) {
+            if (!vm.Modal.Username) {
                 growl.error("Please input Username");
             }
-            else if (vm.ModalHeader === "New" && (vm.Modal.Password == "" || vm.Modal.Password == null)) {
+            else if (vm.ModalHeader === "New" && !vm.Modal.Password) {
                 growl.error("Please input Password");
             }
             else if (vm.ModalHeader === "New" && vm.Modal.Password.length < 6) {
                 growl.error("Password must be at least 6 characters");
             }
-            else if (vm.Modal.FirstName == "" || vm.Modal.FirstName == null) {
+            else if (!vm.Modal.FirstName) {
                 growl.error("Please input First Name");
             }
             else if (!namePattern.test(vm.Modal.FirstName)) {
                 growl.error("First Name must contain letters only");
             }
-            else if (vm.Modal.LastName == "" || vm.Modal.LastName == null) {
+            else if (!vm.Modal.LastName) {
                 growl.error("Please input Last Name");
             }
             else if (!namePattern.test(vm.Modal.LastName)) {
                 growl.error("Last Name must contain letters only");
             }
-            else if (vm.Modal.Role == "" || vm.Modal.Role == null) {
+            else if (!vm.Modal.Role) {
                 growl.error("Please select Role");
             }
             else {
@@ -108,10 +115,10 @@
 
         $scope.ChangePassword = function () {
 
-            if (vm.Change.NewPassword == "" || vm.Change.NewPassword == null) {
+            if (!vm.Change.NewPassword) {
                 growl.error("Please input New Password");
             }
-            else if (vm.Change.ConfirmPassword == "" || vm.Change.ConfirmPassword == null) {
+            else if (!vm.Change.ConfirmPassword) {
                 growl.error("Please input Confirm Password");
             }
             else if (vm.Change.NewPassword.length < 6) {
@@ -158,7 +165,7 @@
         };
 
         $scope.SaveStatus = function () {
-            if (vm.Status.ConfirmPassword == "" || vm.Status.ConfirmPassword == null) {
+            if (!vm.Status.ConfirmPassword) {
                 growl.error("Please input Password to proceed");
             }
             else {

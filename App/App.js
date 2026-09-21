@@ -45,7 +45,7 @@
         };
 
         $scope.ChangePassword = function (value) {
-            if (value.NewPassword == "" || value.NewPassword == null || value.NewPassword.length < 6) {
+            if (!value.NewPassword || value.NewPassword.length < 6) {
                 growl.error("Password must be at least 6 characters");
             }
             else if (value.ConfirmPassword != value.NewPassword) {

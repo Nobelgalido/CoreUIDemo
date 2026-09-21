@@ -1172,7 +1172,7 @@ Solution Explorer → **Show All Files** (toolbar icon) → select `Content\buil
 
 ### 7.3 `Content/Site.css`
 
-Replace the MVC template's `Site.css` with the loader spinner that OneMasaito's theme ships (its `sb-admin-2.css` defines `.loader`; CoreUI's `style.css` does not), the icon-button helper class OneMasaito's views use, and a small shim that gives angular-growl back the Bootstrap 4 look it has in OneMasaito.
+Replace the MVC template's `Site.css` with the loader spinner that OneMasaito's theme ships (its `sb-admin-2.css` defines `.loader`; CoreUI's `style.css` does not), and a small shim that gives angular-growl back the Bootstrap 4 look it has in OneMasaito.
 
 ⚠️ **DEVIATION** — the growl shim is CoreUI-specific. angular-growl puts an `icon` class on every notification for its severity image, and CoreUI's `style.css` defines `.icon` as a 1rem inline-block (for CoreUI Icons), which collapses the notification to a 47-pixel box. Bootstrap 5 also dropped the `.close` class that growl's × and countdown buttons use. Without the shim the growls render, but unreadably.
 
@@ -1196,11 +1196,6 @@ Replace the MVC template's `Site.css` with the loader spinner that OneMasaito's 
     100% {
         transform: rotate(360deg);
     }
-}
-
-/* OneMasaito's helper for icon-only buttons in the accounts grid. */
-.icon-text-white-50 {
-    color: rgba(255, 255, 255, 0.5);
 }
 
 /* angular-growl on Bootstrap 5 / CoreUI — restore the Bootstrap 4 look OneMasaito had.
@@ -1240,7 +1235,7 @@ Replace the MVC template's `Site.css` with the loader spinner that OneMasaito's 
 
 ### 7.4 `App_Start/BundleConfig.cs`
 
-Same three bundle names as OneMasaito. Order inside `~/bundles/scripts` matters: jQuery first (the keypress filters in § 9 use it), then CoreUI (so the `coreui` global exists before any Angular controller runs), then Angular, then angular-growl (which registers a module on `angular`).
+Same three bundle names as OneMasaito. Order inside `~/bundles/scripts` matters: jQuery first (the `#firstName` / `#lastName` keypress filters in § 9.3 use it; nothing else does), then CoreUI (so the `coreui` global exists before any Angular controller runs), then Angular, then angular-growl (which registers a module on `angular`).
 
 jQuery is referenced as `~/Scripts/jquery-{version}.js` rather than by an exact file name: the repo currently ships `jquery-3.7.0.js` even though `packages.config` says 3.7.1, and a bundle entry naming a file that is not on disk is skipped **silently** (no build error, no 404 in the console — just `$ is not defined` later). The `{version}` wildcard matches whichever version is installed and picks the `.min` file automatically when `EnableOptimizations` is true.
 
@@ -1557,6 +1552,7 @@ Structure (top to bottom): head → `mainController` wrapper with loader → gro
                             <h5 class="modal-title">Change Password</h5>
                             <button class="btn-close" type="button" data-coreui-dismiss="modal" aria-label="Close"></button>
                         </div>
+                        <form ng-submit="ChangePassword(main.ChangePassword)" autocomplete="off" novalidate>
                         <div class="modal-body">
                             <div class="mb-3">
                                 <label class="form-label">Current Password</label>
@@ -1572,9 +1568,10 @@ Structure (top to bottom): head → `mainController` wrapper with loader → gro
                             </div>
                         </div>
                         <div class="modal-footer">
-                            <button class="btn btn-primary" ng-click="ChangePassword(main.ChangePassword)">Change Password</button>
-                            <button class="btn btn-secondary" data-coreui-dismiss="modal">Cancel</button>
+                            <button class="btn btn-primary" type="submit">Change Password</button>
+                            <button class="btn btn-secondary" type="button" data-coreui-dismiss="modal">Cancel</button>
                         </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -1588,6 +1585,7 @@ What is OneMasaito's and what is CoreUI's:
 
 - **OneMasaito**: scripts rendered in `<head>`; `ng-controller="mainController as main" ng-init="Init()"` on the outermost div; the `.loader` shown until `main.ItemLoad`; `<div growl class="fading">`; the header search box bound to `main.SearchBox` (the accounts grid filters on it); the user dropdown with *Change Password* (opens `#PasswordModal` **and** calls `OpenPasswordModal()` to clear the fields — OneMasaito wires both) and *Logout* (opens `#logoutModal`, whose confirm button calls `Logout()`); both modals' contents.
 - **CoreUI**: `div.sidebar` / `ul.sidebar-nav[data-coreui="navigation"]` / `sidebar-footer` / `div.wrapper` / `header.header` / `div.body` / `footer.footer`; `data-coreui-*` attributes; `btn-close`; `mb-3` instead of `form-group`; the theme dropdown.
+- **Change Password modal**: the body and footer sit inside `<form ng-submit="ChangePassword(main.ChangePassword)" autocomplete="off" novalidate>` and the *Change Password* button is `type="submit"`, so Enter in any of the three fields submits; *Cancel* is `type="button"` so it only dismisses. OneMasaito uses `ng-click` on the button and has no form element; the fields, `ng-model` names and controller call are the same.
 - **The theme dropdown is not optional.** `color-modes.js` runs `showActiveTheme()` on `DOMContentLoaded` and dereferences the button matching `[data-coreui-theme-value="…"]`; with no such buttons it throws a `TypeError` in the console on every page. If you do not want a theme switcher, remove **both** the dropdown and the `<script src="~/Scripts/js/color-modes.js">` tag and hard-code `<html ng-app="app" data-coreui-theme="light">`.
 - Sidebar gating: OneMasaito shows its *Settings* group when `Department === 1 || Settings === 2 || Settings === 3`. With neither column here, the equivalent is `Role === 'admin'`. This is a UI convenience only — `/Settings/UserAccounts` itself checks only that *someone* is logged in (§ 6), exactly like OneMasaito.
 
@@ -1630,7 +1628,7 @@ What is OneMasaito's and what is CoreUI's:
             <div class="card p-4">
                 <div class="card-body d-flex flex-column gap-4">
                     <h2 class="h5 text-center">Login to your account</h2>
-                    <form class="row gap-3" autocomplete="off" novalidate>
+                    <form class="row gap-3" autocomplete="off" novalidate ng-submit="TryLogin()">
                         <div>
                             <label class="form-label" for="username">Username</label>
                             <input class="form-control" id="username" type="text" placeholder="Enter Username. . . "
@@ -1642,7 +1640,7 @@ What is OneMasaito's and what is CoreUI's:
                                    ng-model="vm.Password" />
                         </div>
                         <div>
-                            <button class="btn btn-primary w-100" type="button" ng-click="TryLogin()">Login</button>
+                            <button class="btn btn-primary w-100" type="submit">Login</button>
                         </div>
                     </form>
                     <hr />
@@ -1655,7 +1653,7 @@ What is OneMasaito's and what is CoreUI's:
 </html>
 ```
 
-`type="button"` on the Login button matters: the form has no `action`, and a default `submit` button would reload the page. Enter-key login is handled by `Login.js` (§ 9), as in OneMasaito.
+The `<form>` has no `action`; it carries `ng-submit="TryLogin()"` and the Login button is `type="submit"`. AngularJS's `ngSubmit` calls `preventDefault()` on a form with no `action`, so clicking the button or pressing Enter in either field runs `TryLogin()` and nothing reloads. (OneMasaito uses `type="button"` + `ng-click` and binds Enter with a jQuery `keypress` handler in `Login.js`; the form-submit route is one attribute and covers both.)
 
 `data-coreui-theme="light"` on `<html>` pins the login page to the light theme because this page does not load `color-modes.js` (it has no theme dropdown for that script to bind to — see § 8.2). `COREUI_GUIDE.md` §9 shows how to make it follow the saved theme if you want that.
 
@@ -1767,7 +1765,7 @@ var app = angular.module('app', ["angular-growl", "growlConfig", "login", "usera
         };
 
         $scope.ChangePassword = function (value) {
-            if (value.NewPassword == "" || value.NewPassword == null || value.NewPassword.length < 6) {
+            if (!value.NewPassword || value.NewPassword.length < 6) {
                 growl.error("Password must be at least 6 characters");
             }
             else if (value.ConfirmPassword != value.NewPassword) {
@@ -1844,12 +1842,6 @@ angular.module("login", ["angular-growl", "growlConfig"])
     .controller("loginController", ['$scope', '$location', '$http', 'growl', function ($scope, $location, $http, growl) {
         var vm = this;
 
-        $(document).on('keypress', function (e) {
-            if (e.which == 13) {
-                $scope.TryLogin();
-            }
-        });
-
         $scope.TryLogin = function () {
             $http({
                 method: "POST",
@@ -1870,7 +1862,7 @@ angular.module("login", ["angular-growl", "growlConfig"])
     }]);
 ```
 
-A copy of OneMasaito's file plus the `growlConfig` dependency and the ttl-less growl call. Enter anywhere on the page submits (jQuery `keypress`), the response's `errorMessage` decides between a growl and a redirect. There is no client-side validation here because OneMasaito has none: an empty username/password simply comes back as `Invalid Username or Password!!`.
+A copy of OneMasaito's file plus the `growlConfig` dependency and the ttl-less growl call, minus OneMasaito's `$(document).on('keypress', …)` block — Enter is handled by the view's `ng-submit` (§ 8.3), so the controller only exposes `TryLogin()`. The response's `errorMessage` decides between a growl and a redirect. There is no client-side validation here because OneMasaito has none: an empty username/password simply comes back as `Invalid Username or Password!!`.
 
 ### 9.3 `App/Controller/UserAccounts.js`
 
@@ -1883,6 +1875,13 @@ angular.module("useraccount", ["app"])
         vm.RoleList = ["user", "manager", "admin"];
 
         vm.ChangePassword = {};
+
+        vm.StatusFilter = "active";
+
+        $scope.StatusMatch = function (acc) {
+            if (vm.StatusFilter === "all") return true;
+            return vm.StatusFilter === "active" ? acc.IsActive : !acc.IsActive;
+        };
 
         var namePattern = /^[a-zA-Z ]+$/;
 
@@ -1915,28 +1914,28 @@ angular.module("useraccount", ["app"])
 
         $scope.Save = function () {
 
-            if (vm.Modal.Username == "" || vm.Modal.Username == null) {
+            if (!vm.Modal.Username) {
                 growl.error("Please input Username");
             }
-            else if (vm.ModalHeader === "New" && (vm.Modal.Password == "" || vm.Modal.Password == null)) {
+            else if (vm.ModalHeader === "New" && !vm.Modal.Password) {
                 growl.error("Please input Password");
             }
             else if (vm.ModalHeader === "New" && vm.Modal.Password.length < 6) {
                 growl.error("Password must be at least 6 characters");
             }
-            else if (vm.Modal.FirstName == "" || vm.Modal.FirstName == null) {
+            else if (!vm.Modal.FirstName) {
                 growl.error("Please input First Name");
             }
             else if (!namePattern.test(vm.Modal.FirstName)) {
                 growl.error("First Name must contain letters only");
             }
-            else if (vm.Modal.LastName == "" || vm.Modal.LastName == null) {
+            else if (!vm.Modal.LastName) {
                 growl.error("Please input Last Name");
             }
             else if (!namePattern.test(vm.Modal.LastName)) {
                 growl.error("Last Name must contain letters only");
             }
-            else if (vm.Modal.Role == "" || vm.Modal.Role == null) {
+            else if (!vm.Modal.Role) {
                 growl.error("Please select Role");
             }
             else {
@@ -1985,10 +1984,10 @@ angular.module("useraccount", ["app"])
 
         $scope.ChangePassword = function () {
 
-            if (vm.Change.NewPassword == "" || vm.Change.NewPassword == null) {
+            if (!vm.Change.NewPassword) {
                 growl.error("Please input New Password");
             }
-            else if (vm.Change.ConfirmPassword == "" || vm.Change.ConfirmPassword == null) {
+            else if (!vm.Change.ConfirmPassword) {
                 growl.error("Please input Confirm Password");
             }
             else if (vm.Change.NewPassword.length < 6) {
@@ -2035,7 +2034,7 @@ angular.module("useraccount", ["app"])
         };
 
         $scope.SaveStatus = function () {
-            if (vm.Status.ConfirmPassword == "" || vm.Status.ConfirmPassword == null) {
+            if (!vm.Status.ConfirmPassword) {
                 growl.error("Please input Password to proceed");
             }
             else {
@@ -2072,6 +2071,8 @@ How each piece maps to OneMasaito:
 
 - `Init` → `/Settings/GetAccounts`; only `accountList` comes back now.
 - `NewAccount` / `EditAccount` / `Save` → the Account modal. `vm.Modal.Role` is posted twice — inside `account` (bound to `UserModel.Role`) and as the separate `role` parameter — because the controller signature keeps OneMasaito's `(UserModel account, <second param>)` shape.
+- `vm.StatusFilter` (`"active"` default, `"inactive"`, `"all"`) and `$scope.StatusMatch(acc)` drive the status filter in the grid header — a second `filter:` on the `ng-repeat`, client-side like the search box. Not in OneMasaito.
+- Required checks are written `!vm.Modal.Username` rather than OneMasaito's `== "" || == null` — same result for `""`, `null` and `undefined`, shorter to read. The same idiom is used in `App.js`.
 - `Save`'s chain: OneMasaito checks Username → Password → First Name → Last Name → Department. Here the Password checks only apply when creating (the Edit modal hides the password field, as OneMasaito's does), a length check follows the required check, each name gets a regex check after its required check, and Department becomes Role.
 - The `#firstName` / `#lastName` keypress filters are OneMasaito's own — they already block anything that is not a letter or a space, so the regex only matters for pasted text and for the server.
 - `UpdatePassword` / `ChangePassword` → admin reset; the length check is inserted before the match check.
@@ -2082,7 +2083,7 @@ How each piece maps to OneMasaito:
 
 ### 9.4 `Views/Settings/UserAccounts.cshtml`
 
-One page: the grid, and three modals. OneMasaito's page has five modals; *User Access* and *Report Access* have no tables here.
+One page: the grid, and three modals. OneMasaito's page has five modals; *User Access* and *Report Access* have no tables here. Each modal's body + footer is wrapped in a `<form ng-submit="…" autocomplete="off" novalidate>` (`Save()`, `ChangePassword()`, `SaveStatus()`) and its Save button is `type="submit"`, so Enter in any field saves — OneMasaito uses `type="button"` + `ng-click` and no form element. The header cell holds the "+" button and an *Active | Inactive | All* `btn-group-sm` (selected segment carries `active`, bound to `vm.StatusFilter`); the row loop is `filter: main.SearchBox | filter: StatusMatch`.
 
 ```cshtml
 @{
@@ -2100,11 +2101,16 @@ One page: the grid, and three modals. OneMasaito's page has five modals; *User A
                     <thead>
                         <tr>
                             <th>
-                                <button class="btn btn-success" ng-click="NewAccount()">
-                                    <span class="icon-text-white-50">
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-ghost-secondary" ng-click="NewAccount()" title="New Account">
                                         <i class="cil-plus"></i>
-                                    </span>
-                                </button>
+                                    </button>
+                                    <div class="btn-group btn-group-sm" role="group" aria-label="Status filter">
+                                        <button type="button" class="btn btn-outline-secondary" ng-class="{ active: vm.StatusFilter === 'active' }" ng-click="vm.StatusFilter = 'active'">Active</button>
+                                        <button type="button" class="btn btn-outline-secondary" ng-class="{ active: vm.StatusFilter === 'inactive' }" ng-click="vm.StatusFilter = 'inactive'">Inactive</button>
+                                        <button type="button" class="btn btn-outline-secondary" ng-class="{ active: vm.StatusFilter === 'all' }" ng-click="vm.StatusFilter = 'all'">All</button>
+                                    </div>
+                                </div>
                             </th>
                             <th>UserName</th>
                             <th>Name</th>
@@ -2113,27 +2119,19 @@ One page: the grid, and three modals. OneMasaito's page has five modals; *User A
                         </tr>
                     </thead>
                     <tbody>
-                        <tr ng-repeat="acc in vm.AccountList | filter: main.SearchBox">
+                        <tr ng-repeat="acc in vm.AccountList | filter: main.SearchBox | filter: StatusMatch">
                             <td>
-                                <button class="btn btn-info" ng-click="EditAccount(acc)" title="Edit">
-                                    <span class="icon-text-white-50">
-                                        <i class="cil-pencil"></i>
-                                    </span>
+                                <button class="btn btn-ghost-secondary" ng-click="EditAccount(acc)" title="Edit">
+                                    <i class="cil-pencil"></i>
                                 </button>
-                                <button class="btn btn-warning" ng-click="UpdatePassword(acc)" title="Reset Password">
-                                    <span class="icon-text-white-50">
-                                        <i class="cil-lock-locked"></i>
-                                    </span>
+                                <button class="btn btn-ghost-secondary" ng-click="UpdatePassword(acc)" title="Reset Password">
+                                    <i class="cil-lock-locked"></i>
                                 </button>
-                                <button class="btn btn-danger" ng-click="UpdateStatus(acc)" ng-show="acc.IsActive" title="Deactivate">
-                                    <span class="icon-text-white-50">
-                                        <i class="cil-ban"></i>
-                                    </span>
+                                <button class="btn btn-ghost-danger" ng-click="UpdateStatus(acc)" ng-show="acc.IsActive" title="Deactivate">
+                                    <i class="cil-ban"></i>
                                 </button>
-                                <button class="btn btn-success" ng-click="UpdateStatus(acc)" ng-show="!acc.IsActive" title="Activate">
-                                    <span class="icon-text-white-50">
-                                        <i class="cil-check-circle"></i>
-                                    </span>
+                                <button class="btn btn-ghost-success" ng-click="UpdateStatus(acc)" ng-show="!acc.IsActive" title="Activate">
+                                    <i class="cil-check-circle"></i>
                                 </button>
                             </td>
                             <td>{{acc.Username}}</td>
@@ -2156,6 +2154,7 @@ One page: the grid, and three modals. OneMasaito's page has five modals; *User A
                     <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
                 </div>
 
+                <form ng-submit="Save()" autocomplete="off" novalidate>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Username</label>
@@ -2184,8 +2183,9 @@ One page: the grid, and three modals. OneMasaito's page has five modals; *User A
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" ng-click="Save()">Save</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
                 </div>
+                </form>
             </div>
         </div>
     </div>
@@ -2200,6 +2200,7 @@ One page: the grid, and three modals. OneMasaito's page has five modals; *User A
                     <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
                 </div>
 
+                <form ng-submit="ChangePassword()" autocomplete="off" novalidate>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">New Password</label>
@@ -2213,8 +2214,9 @@ One page: the grid, and three modals. OneMasaito's page has five modals; *User A
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" ng-click="ChangePassword()">Save</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
                 </div>
+                </form>
             </div>
         </div>
     </div>
@@ -2230,6 +2232,7 @@ One page: the grid, and three modals. OneMasaito's page has five modals; *User A
                     <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
                 </div>
 
+                <form ng-submit="SaveStatus()" autocomplete="off" novalidate>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Confirm Password</label>
@@ -2239,8 +2242,9 @@ One page: the grid, and three modals. OneMasaito's page has five modals; *User A
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" ng-click="SaveStatus()">Save</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
                 </div>
+                </form>
             </div>
         </div>
     </div>
@@ -2249,14 +2253,14 @@ One page: the grid, and three modals. OneMasaito's page has five modals; *User A
 </div>
 ```
 
-OneMasaito parity: `ng-controller="accountsController as vm"`, `ng-init="Init()"` on the card, `ng-repeat="acc in vm.AccountList | filter: main.SearchBox"` (the header search box filters this grid), the "+" button in the header cell, the same row-action buttons in the same colours, the same three modals with the same ids and the same `ng-model` names, the `#firstName` / `#lastName` ids the keypress filters attach to, the Username field disabled and the Password field hidden in Edit mode.
+OneMasaito parity: `ng-controller="accountsController as vm"`, `ng-init="Init()"` on the card, `ng-repeat="acc in vm.AccountList | filter: main.SearchBox"` (the header search box filters this grid), the "+" button in the header cell, the same row-action buttons with the same icons and `ng-click`s, the same three modals with the same ids and the same `ng-model` names (each wrapped in an `ng-submit` form here), the `#firstName` / `#lastName` ids the keypress filters attach to, the Username field disabled and the Password field hidden in Edit mode.
 
-⚠️ **DEVIATION** — Department column and dropdown → Role column and `<select>` of the three constraint values; Modified By / Modified Date columns gone; User Access and Report Access buttons and modals gone; Font Awesome `fas fa-*` → CoreUI `cil-*`; `data-dismiss="modal"` → `data-coreui-dismiss="modal"`; `close` → `btn-close`; `form-group` → `mb-3`; `form-control` on `<select>` → `form-select`; the hidden `ID` inputs OneMasaito keeps in two modals are dropped (the id travels in `vm.Change.ID` / `vm.Status.ID` anyway); a help line under the status modal's password field says whose password it is.
+⚠️ **DEVIATION** — status filter (*Active | Inactive | All*, default *Active*) beside the "+" button, absent in OneMasaito; each modal's body + footer wrapped in `<form ng-submit>` with a `type="submit"` Save button so Enter saves (OneMasaito: `type="button"` + `ng-click`, no form element), and required checks written `!x` instead of `== "" || == null`; the "+" / Edit / Reset Password buttons are `btn-ghost-secondary` and Deactivate / Activate are `btn-ghost-danger` / `btn-ghost-success` instead of OneMasaito's solid `btn-success` / `btn-info` / `btn-warning` / `btn-danger`, with the `icon-text-white-50` span (and its `Site.css` rule) removed because a half-white icon is invisible on a transparent button; Department column and dropdown → Role column and `<select>` of the three constraint values; Modified By / Modified Date columns gone; User Access and Report Access buttons and modals gone; Font Awesome `fas fa-*` → CoreUI `cil-*`; `data-dismiss="modal"` → `data-coreui-dismiss="modal"`; `close` → `btn-close`; `form-group` → `mb-3`; `form-control` on `<select>` → `form-select`; the hidden `ID` inputs OneMasaito keeps in two modals are dropped (the id travels in `vm.Change.ID` / `vm.Status.ID` anyway); a help line under the status modal's password field says whose password it is.
 
 ✅ **VERIFY** — F5, then:
 1. Log in as `admin` / `admin123` → you land on `/Home/Index` with the sidebar showing **Dashboard** and **Settings → User Account**.
-2. Open **User Account** → the grid shows the `admin` row, Role `admin`, Status **Active** in green.
-3. Click **+** → enter Username `jdoe`, Password `12345` → *Password must be at least 6 characters*. Password `123456`, First Name `John2` → the `2` cannot be typed (keypress filter); paste `John2` → *First Name must contain letters only*. First Name `John`, Last Name `Doe`, Role `user` → *Successfully Saved*, modal closes, grid shows the new row.
+2. Open **User Account** → the header cell shows a plain "+" icon then **Active | Inactive | All** with *Active* filled; the grid shows the `admin` row, Role `admin`, Status **Active** in green; the row's Edit / Reset / Deactivate icons have no background. Click **Inactive** → no rows; **All** → the `admin` row again; back to **Active**.
+3. Click **+** → enter Username `jdoe`, Password `12345` → *Password must be at least 6 characters*. Password `123456`, First Name `John2` → the `2` cannot be typed (keypress filter); paste `John2` → *First Name must contain letters only*. First Name `John`, Last Name `Doe`, Role `user`, press **Enter** in the Last Name field → *Successfully Saved*, modal closes, grid shows the new row (Enter submits the modal's form, same as clicking Save).
 4. DevTools → Network → right-click the `SaveNewAccount` request → *Copy as fetch* → paste in Console, change `"FirstName":"John"` to `"FirstName":"J0hn"` and `"Username"` to something new → run → response `{"message":"First Name and Last Name may contain letters and spaces only"}`. That is the server-side rule holding.
 5. Type `doe` in the header search box → the grid filters to John Doe.
 
@@ -2276,7 +2280,7 @@ Run every step in order on a fresh browser session. The **expected** column is t
 | # | Action | Expected |
 |---|---|---|
 | 1 | Open the site root. | `/Home/Login` renders the login card. |
-| 2 | Log in with a wrong password. | Growl: `Invalid Username or Password!!` |
+| 2 | Log in with a wrong password, pressing **Enter** in the password field. | Growl: `Invalid Username or Password!!` (Enter submits the form via `ng-submit`; the Login button does the same). |
 | 3 | Log in as `admin` / `admin123`. | Redirect to `/Home/Index`; header shows *System Administrator*; sidebar shows **Settings**. |
 | 4 | Settings → User Account. | Grid lists `admin` (Active) and, if § 9 was verified, `jdoe`. |
 | 5 | **+** → Username `jdoe` (again), Password `123456`, First `Jane`, Last `Doe`, Role `user`. | Growl: `Duplicate Username` (C# check in `SaveNewAccount`). |
@@ -2289,10 +2293,10 @@ Run every step in order on a fresh browser session. The **expected** column is t
 | 12 | Reset Password on `msmith` → New `secret1`, Confirm `secret1`. | `Password Successfully Changed`. |
 | 13 | Deactivate `msmith` → Confirm Password `wrong`. | Growl: `Wrong Password!` |
 | 14 | Deactivate **`admin`** (your own row) → Confirm Password `admin123`. | Growl: `You cannot deactivate your own account.` (from `sp_DeleteUser`); admin stays Active. |
-| 15 | Deactivate `msmith` → Confirm Password `admin123`. | `Account Status Successfully Changed`; `msmith` shows **Inactive** in red; the button turns green. |
+| 15 | Deactivate `msmith` → Confirm Password `admin123`. | `Account Status Successfully Changed`; `msmith` disappears from the *Active* view. Click **Inactive** → only `msmith`, **Inactive** in red, green Activate icon. Click **All** → every row. Type `smith` in the header search with *All* selected → `jsmith` and `msmith`; switch to *Inactive* → `msmith` only (search and filter combine). |
 | 16 | Logout (header → Logout → confirm). | Redirect to `/Home/Login`. |
 | 17 | Log in as `msmith` / `secret1`. | Growl: `Account is Locked. Contact MIS Department` |
-| 18 | Log in as `admin`, activate `msmith` (Confirm Password `admin123`), log out, log in as `msmith` / `secret1`. | Redirect to `/Home/Index`; header shows *Mary Ann Smith*; sidebar shows **no** Settings group. |
+| 18 | Log in as `admin`, click **Inactive** (or **All**) — the grid opens on *Active* and hides `msmith` — activate `msmith` (Confirm Password `admin123`), log out, log in as `msmith` / `secret1`. | Redirect to `/Home/Index`; header shows *Mary Ann Smith*; sidebar shows **no** Settings group. |
 | 19 | As `msmith`, type `/Settings/UserAccounts` in the address bar. | The page renders (OneMasaito checks only that a user is logged in — recorded in `ARCHITECTURE.md` §7). |
 | 20 | As `msmith`, header → Change Password → Current `wrong`, New `secret2`, Confirm `secret2`. | Growl: `Current password is incorrect.` (from `sp_UpdateUserPassword`). |
 | 21 | Change Password → Current `secret1`, New `secret1`, Confirm `secret1`. | Growl: `New password must be different from the current password.` |

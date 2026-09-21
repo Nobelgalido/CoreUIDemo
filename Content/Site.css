@@ -19,11 +19,6 @@
     }
 }
 
-/* OneMasaito's helper for icon-only buttons in the accounts grid. */
-.icon-text-white-50 {
-    color: rgba(255, 255, 255, 0.5);
-}
-
 /* angular-growl on Bootstrap 5 / CoreUI — restore the Bootstrap 4 look OneMasaito had.
    1. CoreUI's own `.icon` rule (style.css) collapses any element carrying that class to a
       1rem inline-block; angular-growl puts `icon` on every growl item for its severity image,

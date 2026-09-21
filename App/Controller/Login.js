@@ -2,12 +2,6 @@
     .controller("loginController", ['$scope', '$location', '$http', 'growl', function ($scope, $location, $http, growl) {
         var vm = this;
 
-        $(document).on('keypress', function (e) {
-            if (e.which == 13) {
-                $scope.TryLogin();
-            }
-        });
-
         $scope.TryLogin = function () {
             $http({
                 method: "POST",

@@ -30,7 +30,7 @@
             <div class="card p-4">
                 <div class="card-body d-flex flex-column gap-4">
                     <h2 class="h5 text-center">Login to your account</h2>
-                    <form class="row gap-3" autocomplete="off" novalidate>
+                    <form class="row gap-3" autocomplete="off" novalidate ng-submit="TryLogin()">
                         <div>
                             <label class="form-label" for="username">Username</label>
                             <input class="form-control" id="username" type="text" placeholder="Enter Username. . . "
@@ -42,7 +42,7 @@
                                    ng-model="vm.Password" />
                         </div>
                         <div>
-                            <button class="btn btn-primary w-100" type="button" ng-click="TryLogin()">Login</button>
+                            <button class="btn btn-primary w-100" type="submit">Login</button>
                         </div>
                     </form>
                     <hr />

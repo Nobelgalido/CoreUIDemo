@@ -13,11 +13,16 @@
                     <thead>
                         <tr>
                             <th>
-                                <button class="btn btn-success" ng-click="NewAccount()">
-                                    <span class="icon-text-white-50">
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-ghost-secondary" ng-click="NewAccount()" title="New Account">
                                         <i class="cil-plus"></i>
-                                    </span>
-                                </button>
+                                    </button>
+                                    <div class="btn-group btn-group-sm" role="group" aria-label="Status filter">
+                                        <button type="button" class="btn btn-outline-secondary" ng-class="{ active: vm.StatusFilter === 'active' }" ng-click="vm.StatusFilter = 'active'">Active</button>
+                                        <button type="button" class="btn btn-outline-secondary" ng-class="{ active: vm.StatusFilter === 'inactive' }" ng-click="vm.StatusFilter = 'inactive'">Inactive</button>
+                                        <button type="button" class="btn btn-outline-secondary" ng-class="{ active: vm.StatusFilter === 'all' }" ng-click="vm.StatusFilter = 'all'">All</button>
+                                    </div>
+                                </div>
                             </th>
                             <th>UserName</th>
                             <th>Name</th>
@@ -26,27 +31,19 @@
                         </tr>
                     </thead>
                     <tbody>
-                        <tr ng-repeat="acc in vm.AccountList | filter: main.SearchBox">
+                        <tr ng-repeat="acc in vm.AccountList | filter: main.SearchBox | filter: StatusMatch">
                             <td>
-                                <button class="btn btn-info" ng-click="EditAccount(acc)" title="Edit">
-                                    <span class="icon-text-white-50">
-                                        <i class="cil-pencil"></i>
-                                    </span>
+                                <button class="btn btn-ghost-secondary" ng-click="EditAccount(acc)" title="Edit">
+                                    <i class="cil-pencil"></i>
                                 </button>
-                                <button class="btn btn-warning" ng-click="UpdatePassword(acc)" title="Reset Password">
-                                    <span class="icon-text-white-50">
-                                        <i class="cil-lock-locked"></i>
-                                    </span>
+                                <button class="btn btn-ghost-secondary" ng-click="UpdatePassword(acc)" title="Reset Password">
+                                    <i class="cil-lock-locked"></i>
                                 </button>
-                                <button class="btn btn-danger" ng-click="UpdateStatus(acc)" ng-show="acc.IsActive" title="Deactivate">
-                                    <span class="icon-text-white-50">
-                                        <i class="cil-ban"></i>
-                                    </span>
+                                <button class="btn btn-ghost-danger" ng-click="UpdateStatus(acc)" ng-show="acc.IsActive" title="Deactivate">
+                                    <i class="cil-ban"></i>
                                 </button>
-                                <button class="btn btn-success" ng-click="UpdateStatus(acc)" ng-show="!acc.IsActive" title="Activate">
-                                    <span class="icon-text-white-50">
-                                        <i class="cil-check-circle"></i>
-                                    </span>
+                                <button class="btn btn-ghost-success" ng-click="UpdateStatus(acc)" ng-show="!acc.IsActive" title="Activate">
+                                    <i class="cil-check-circle"></i>
                                 </button>
                             </td>
                             <td>{{acc.Username}}</td>
@@ -69,6 +66,7 @@
                     <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
                 </div>
 
+                <form ng-submit="Save()" autocomplete="off" novalidate>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Username</label>
@@ -97,8 +95,9 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" ng-click="Save()">Save</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
                 </div>
+                </form>
             </div>
         </div>
     </div>
@@ -113,6 +112,7 @@
                     <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
                 </div>
 
+                <form ng-submit="ChangePassword()" autocomplete="off" novalidate>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">New Password</label>
@@ -126,8 +126,9 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" ng-click="ChangePassword()">Save</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
                 </div>
+                </form>
             </div>
         </div>
     </div>
@@ -143,6 +144,7 @@
                     <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
                 </div>
 
+                <form ng-submit="SaveStatus()" autocomplete="off" novalidate>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Confirm Password</label>
@@ -152,8 +154,9 @@
                 </div>
 
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" ng-click="SaveStatus()">Save</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
                 </div>
+                </form>
             </div>
         </div>
     </div>
