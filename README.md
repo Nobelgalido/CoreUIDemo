@@ -37,6 +37,7 @@ If the repo is still in its pre-conversion state (an `AccountController`, `Users
 |---|---|
 | [`docs/BUILD_GUIDE.md`](docs/BUILD_GUIDE.md) | Step-by-step guide to convert this repo into the OneMasaito mirror: cleanup, database, EDMX, every backend file, CoreUI vendoring, every view and Angular file, end-to-end checks, troubleshooting |
 | [`docs/COREUI_GUIDE.md`](docs/COREUI_GUIDE.md) | How the CoreUI v5.5.0 template is used: what to vendor, bundles, layout anatomy, login card, `coreui.*` JS rules, icons, dark mode, Bootstrap 4 → 5 renames |
+| [`docs/coreui/README.md`](docs/coreui/README.md) | CoreUI template handbook: how to use and customize every page and component of the dist on this stack |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Reference for the finished system: folder map, request flows, endpoints, data model, OneMasaito → CoreUIDemo mapping, known limitations |
 | [`docs/superpowers/specs/2026-09-17-onemasaito-mirror-design.md`](docs/superpowers/specs/2026-09-17-onemasaito-mirror-design.md) | The approved design the guides implement |
 
