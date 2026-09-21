@@ -23,3 +23,37 @@
 .icon-text-white-50 {
     color: rgba(255, 255, 255, 0.5);
 }
+
+/* angular-growl on Bootstrap 5 / CoreUI — restore the Bootstrap 4 look OneMasaito had.
+   1. CoreUI's own `.icon` rule (style.css) collapses any element carrying that class to a
+      1rem inline-block; angular-growl puts `icon` on every growl item for its severity image,
+      so undo that here.
+   2. Bootstrap 5 dropped `.close` (now `.btn-close`); growl's × and countdown buttons still
+      use it, so re-create Bootstrap 4's `.close`, scoped to growl. */
+.growl-container > .growl-item.icon {
+    display: block;
+    width: auto;
+    height: auto;
+    font-size: inherit;
+    color: var(--cui-alert-color);
+    text-align: left;
+    vertical-align: baseline;
+}
+
+.growl-container > .growl-item > button.close {
+    float: right;
+    padding: 0;
+    margin-left: 4px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #000;
+    text-shadow: 0 1px 0 #fff;
+    background-color: transparent;
+    border: 0;
+    opacity: .5;
+}
+
+.growl-container > .growl-item > button.close:hover {
+    opacity: .75;
+}

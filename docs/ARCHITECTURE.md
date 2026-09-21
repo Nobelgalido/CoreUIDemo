@@ -19,14 +19,15 @@ Every source file, what it is for, and the OneMasaito file it mirrors.
 
 | Path | Responsibility | Mirrors (OneMasaito) |
 |---|---|---|
-| `App/App.js` | Root Angular module `app` (depends on `angular-growl`, `login`, `useraccount`) + `mainController`: loads the current user, self-service change-password, logout; global helpers `PopUpMessage`, `ShowModal`, `HideModal` | `App/App.js` |
-| `App/Controller/Login.js` | Angular module `login` + `loginController`: posts credentials, redirects on success | `App/Controller/Login.js` |
+| `App/GrowlConfig.js` | Angular module `growlConfig`: the one place angular-growl's time-to-live is set (success 3 s, error 5 s); shared by `app` and `login` | — (OneMasaito sets `ttl` inline on every call) |
+| `App/App.js` | Root Angular module `app` (depends on `angular-growl`, `growlConfig`, `login`, `useraccount`) + `mainController`: loads the current user, self-service change-password, logout; global helpers `PopUpMessage`, `ShowModal`, `HideModal` | `App/App.js` |
+| `App/Controller/Login.js` | Angular module `login` (depends on `angular-growl`, `growlConfig`) + `loginController`: posts credentials, redirects on success | `App/Controller/Login.js` |
 | `App/Controller/UserAccounts.js` | Angular module `useraccount` + `accountsController`: grid load, create/edit, admin password reset, activate/deactivate, client-side validation | `App/Controller/UserAccounts.js` |
 | `App_Start/BundleConfig.cs` | Bundles `~/Content/css`, `~/bundles/scripts`, `~/bundles/angular` | `App_Start/BundleConfig.cs` |
 | `App_Start/FilterConfig.cs` | `HandleErrorAttribute` only | same |
 | `App_Start/Principal.cs` | `Principal` (assigned to `HttpContext.User`), `PrincipalSerializedModel` (ticket payload), `IPrincipal` | `App_Start/Principal.cs` |
 | `App_Start/RouteConfig.cs` | Default route `Home/Login` | same |
-| `Content/Site.css` | `.loader` spinner, `.icon-text-white-50` | `Content/build/css/sb-admin-2.css` (those two rules) |
+| `Content/Site.css` | `.loader` spinner, `.icon-text-white-50`, growl Bootstrap-4 shim | `Content/build/css/sb-admin-2.css` (the first two rules); the shim has no counterpart |
 | `Content/build/css/style.css` | CoreUI theme (Bootstrap 5 + CoreUI layout) | `Content/build/css/sb-admin-2.css` |
 | `Content/vendor/@coreui/coreui/js/coreui.bundle.min.js` | CoreUI/Bootstrap 5 JS + Popper | `Content/vendor/bootstrap/js/bootstrap.bundle.min.js` |
 | `Content/vendor/@coreui/icons/` | CoreUI Icons Free font | `Content/vendor/fontawesome-free/` |
@@ -175,11 +176,11 @@ The same name/password rules run first in the browser (`UserAccounts.js`, `App.j
 
 **Dropped (no data or no module):** Department list; User Access modal and `UpdateUserAccess`; Report Access modal, `GetUserReportAccess`, `UpdateReportAccess`; `BuildingPermitDropdown`; `IFCAService` entity/project lists in `GetCurrentUser`; `LotID` / `DocIDForUpload` ticket fields and the two `AccountService` methods that re-issued the cookie for them; `SelectedTransactionModule` / `SelectedDocumentIDForUpload`; Modified By / Modified Date columns; the "Patch Notes" dashboard content; the `#sidebarToggle` jQuery block; DataTables, Font Awesome, Chart.js, moment, jquery-easing, respond, angular-file-upload; the unused `bootstrap` / `bootstrap.less` NuGet packages; Google Fonts.
 
-**Changed:** SB Admin 2 (Bootstrap 4) → CoreUI v5.5.0 (Bootstrap 5) markup and `data-coreui-*` attributes; `$('#x').modal()` → `coreui.Modal` via `ShowModal` / `HideModal`; `fas fa-*` → `cil-*`; `Status` → `IsActive`; `Department` → `Role`; `SaveNewAccount(UserModel, long department)` → `(UserModel, string role)`; `SaveAccount` / `UpdateAccount` gain `out string message` so sproc errors reach the UI; catch blocks use `GetBaseException().Message`; `GetCurrentUser` allows GET; `angular.copy` on edit; modals close only on success; name regex + password length validation (user-requested).
+**Changed:** SB Admin 2 (Bootstrap 4) → CoreUI v5.5.0 (Bootstrap 5) markup and `data-coreui-*` attributes; `$('#x').modal()` → `coreui.Modal` via `ShowModal` / `HideModal`; `fas fa-*` → `cil-*`; `Status` → `IsActive`; `Department` → `Role`; `SaveNewAccount(UserModel, long department)` → `(UserModel, string role)`; `SaveAccount` / `UpdateAccount` gain `out string message` so sproc errors reach the UI; catch blocks use `GetBaseException().Message`; `GetCurrentUser` allows GET; `angular.copy` on edit; modals close only on success; name regex + password length validation (user-requested); growl `ttl` set once per severity in `GrowlConfig.js` instead of on every call, and no growl titles (user-requested, 2026-09-21); a CSS shim in `Site.css` restores growl's Bootstrap 4 look under CoreUI (CoreUI's `.icon` rule and Bootstrap 5's missing `.close` otherwise break it).
 
 ### 6.3 Angular module topology
 
-Identical to OneMasaito, reduced to three files: `app` (layout, `mainController`) lists `login` and `useraccount` as dependencies; `useraccount` lists `app` (a cycle Angular tolerates); `login` is independent because the login page has no layout. All three load on every page through `~/bundles/angular`.
+Identical to OneMasaito, reduced to three page files plus one shared config: `app` (layout, `mainController`) lists `login` and `useraccount` as dependencies; `useraccount` lists `app` (a cycle Angular tolerates); `login` is independent because the login page has no layout. `growlConfig` (`App/GrowlConfig.js`) is listed by both `app` and `login` so the global growl settings reach every page — it cannot live in `app` alone because the login page never loads `app`. All four load on every page through `~/bundles/angular`.
 
 ## 7. Known limitations (inherited by design)
 

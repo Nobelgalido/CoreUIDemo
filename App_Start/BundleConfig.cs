@@ -46,6 +46,7 @@ namespace CoreUIDemo
             bundles.Add(scriptsBundle);
 
             bundles.Add(new ScriptBundle("~/bundles/angular").Include(
+                "~/App/GrowlConfig.js",
                 "~/App/App.js",
                 "~/App/Controller/Login.js",
                 "~/App/Controller/UserAccounts.js"

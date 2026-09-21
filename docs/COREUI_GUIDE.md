@@ -44,7 +44,7 @@ OneMasaito hand-copies its theme: the compiled SB Admin 2 bundle lives in `Conte
 
 ```
 Content/
-  Site.css                                   ← .loader spinner + .icon-text-white-50 (OneMasaito's sb-admin-2.css extras)
+  Site.css                                   ← .loader spinner + .icon-text-white-50 (OneMasaito's sb-admin-2.css extras) + growl BS4 shim (§ 10)
   build/css/style.css                        ≙ OneMasaito Content/build/css/sb-admin-2.css
   vendor/@coreui/coreui/js/coreui.bundle.min.js   ≙ Content/vendor/bootstrap/js/bootstrap.bundle.min.js
   vendor/@coreui/icons/css/free.min.css      ≙ Content/vendor/fontawesome-free/css/all.min.css
@@ -72,7 +72,7 @@ Three bundles, named exactly as OneMasaito's, registered in `App_Start/BundleCon
 |---|---|---|
 | `~/Content/css` | `style.css` → `free.min.css` → `simplebar.css` → `angular-growl.min.css` → `Site.css` | Theme first; `Site.css` last so its rules win |
 | `~/bundles/scripts` | `jquery-{version}.js` → `coreui.bundle.min.js` → `simplebar.min.js` → `angular.min.js` → `angular-growl.min.js` | jQuery is used only by OneMasaito's keypress filters; **CoreUI before Angular** so the `coreui` global exists when controllers run; `angular-growl` registers a module on `angular`, so Angular first |
-| `~/bundles/angular` | `App.js` → `Login.js` → `UserAccounts.js` | `App.js` declares the root module the others depend on / are depended on by |
+| `~/bundles/angular` | `GrowlConfig.js` → `App.js` → `Login.js` → `UserAccounts.js` | `GrowlConfig.js` declares the `growlConfig` module (global growl TTLs) that both `app` and `login` list; `App.js` declares the root module the others depend on / are depended on by. Order inside this bundle does not matter to Angular (modules resolve at bootstrap), but keep it readable: shared config first |
 
 Three rules that are easy to get wrong:
 
@@ -260,4 +260,6 @@ OneMasaito's markup is Bootstrap 4. Every place its HTML was ported into CoreUID
 | `bg-white` (when it should follow the theme) | `bg-body` |
 | `btn-block` | `w-100` (or wrap in `d-grid`) |
 | `jumbotron`, `media`, `form-row`, `form-inline` | Removed in BS5 — use utilities (`p-5 bg-body-tertiary rounded`, `d-flex`, `row g-3`, `d-flex align-items-center gap-2`) |
+
+**Third-party markup you cannot rename — angular-growl.** Its template (inside `angular-growl.min.js`) still emits Bootstrap 4's `<button class="close">` and adds an `icon` class to every notification; you cannot apply the table above to it. Two CoreUI collisions follow: `.close` no longer exists, and CoreUI's `style.css` defines `.icon` (for CoreUI Icons) as a 1rem inline-block, which shrinks each growl to a ~47 px box. `Content/Site.css` carries a shim scoped to `.growl-container > .growl-item` that restores `display: block`, the alert text colour (`var(--cui-alert-color)`, since `.icon { color: inherit }` otherwise wins) and a Bootstrap-4-style `.close`. Keep that shim if you ever restyle `Site.css`; if you drop angular-growl for CoreUI Toasts, delete it.
 | `data-*` behaviour attributes | `data-coreui-*` (§ 7) |

@@ -39,28 +39,28 @@
         $scope.Save = function () {
 
             if (vm.Modal.Username == "" || vm.Modal.Username == null) {
-                growl.error("Please input Username", { ttl: 5000 });
+                growl.error("Please input Username");
             }
             else if (vm.ModalHeader === "New" && (vm.Modal.Password == "" || vm.Modal.Password == null)) {
-                growl.error("Please input Password", { ttl: 5000 });
+                growl.error("Please input Password");
             }
             else if (vm.ModalHeader === "New" && vm.Modal.Password.length < 6) {
-                growl.error("Password must be at least 6 characters", { ttl: 5000 });
+                growl.error("Password must be at least 6 characters");
             }
             else if (vm.Modal.FirstName == "" || vm.Modal.FirstName == null) {
-                growl.error("Please input First Name", { ttl: 5000 });
+                growl.error("Please input First Name");
             }
             else if (!namePattern.test(vm.Modal.FirstName)) {
-                growl.error("First Name must contain letters only", { ttl: 5000 });
+                growl.error("First Name must contain letters only");
             }
             else if (vm.Modal.LastName == "" || vm.Modal.LastName == null) {
-                growl.error("Please input Last Name", { ttl: 5000 });
+                growl.error("Please input Last Name");
             }
             else if (!namePattern.test(vm.Modal.LastName)) {
-                growl.error("Last Name must contain letters only", { ttl: 5000 });
+                growl.error("Last Name must contain letters only");
             }
             else if (vm.Modal.Role == "" || vm.Modal.Role == null) {
-                growl.error("Please select Role", { ttl: 5000 });
+                growl.error("Please select Role");
             }
             else {
                 $http({
@@ -109,17 +109,17 @@
         $scope.ChangePassword = function () {
 
             if (vm.Change.NewPassword == "" || vm.Change.NewPassword == null) {
-                growl.error("Please input New Password", { ttl: 5000 });
+                growl.error("Please input New Password");
             }
             else if (vm.Change.ConfirmPassword == "" || vm.Change.ConfirmPassword == null) {
-                growl.error("Please input Confirm Password", { ttl: 5000 });
+                growl.error("Please input Confirm Password");
             }
             else if (vm.Change.NewPassword.length < 6) {
-                growl.error("Password must be at least 6 characters", { ttl: 5000 });
+                growl.error("Password must be at least 6 characters");
             }
             else {
                 if (vm.Change.NewPassword != vm.Change.ConfirmPassword) {
-                    growl.error("Password Not Match!", { ttl: 5000 });
+                    growl.error("Password Not Match!");
                 }
                 else {
                     $http({
@@ -132,14 +132,14 @@
 
                     }).then(function (data) {
                         if (data.data.errorMessage == "") {
-                            growl.success("Password Successfully Changed", { ttl: 2000 });
+                            growl.success("Password Successfully Changed");
 
                             $scope.Init();
 
                             HideModal("ChangePasswordModal");
                         }
                         else {
-                            growl.error(data.data.errorMessage, { title: "Error", ttl: 2000 })
+                            growl.error(data.data.errorMessage)
 
                             vm.Change.NewPassword = "";
 
@@ -159,7 +159,7 @@
 
         $scope.SaveStatus = function () {
             if (vm.Status.ConfirmPassword == "" || vm.Status.ConfirmPassword == null) {
-                growl.error("Please input Password to proceed", { ttl: 5000 });
+                growl.error("Please input Password to proceed");
             }
             else {
                 $http({
@@ -171,14 +171,14 @@
                     }
                 }).then(function (data) {
                     if (data.data.errorMessage == "") {
-                        growl.success("Account Status Successfully Changed", { ttl: 2000 });
+                        growl.success("Account Status Successfully Changed");
 
                         $scope.Init();
 
                         HideModal("UpdateStatusModal");
                     }
                     else {
-                        growl.error(data.data.errorMessage, { title: "Error", ttl: 2000 })
+                        growl.error(data.data.errorMessage)
 
                         vm.Status.ConfirmPassword = "";
 

@@ -164,6 +164,7 @@
   <ItemGroup>
     <Content Include=".gitignore" />
     <Content Include="App\App.js" />
+    <Content Include="App\GrowlConfig.js" />
     <Content Include="App\Controller\Login.js" />
     <Content Include="App\Controller\UserAccounts.js" />
     <Content Include="favicon.ico" />

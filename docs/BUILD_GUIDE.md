@@ -56,7 +56,7 @@ The repo currently contains code from an earlier design that added things OneMas
 | `Content/bootstrap*.css*`, `Scripts/bootstrap*.js*`, `Content/themes/` | **Delete** | Installed by the `bootstrap` NuGet package — unused (CoreUI ships its own Bootstrap 5 build) |
 | `Content/coreui*.css*`, `Scripts/coreui*.js*` | **Delete** | Stray copies of the CoreUI *library* dist, not the admin template. § 7 vendors the right files into `Content/build` / `Content/vendor` |
 | `Content/css/`, `Content/vendors/`, `Content/icons/`, `Scripts/js/*` (except `color-modes.js`) | **Delete** | Earlier attempt at vendoring the template into the wrong folders; § 7 does it in OneMasaito's layout. `Content/css/` **must** go — it collides with the `~/Content/css` bundle name |
-| `Content/Site.css` | **Rewrite** (§ 7) | Loader spinner CSS |
+| `Content/Site.css` | **Rewrite** (§ 7) | Loader spinner CSS + growl Bootstrap-4 shim |
 | `Controllers/AccountController.cs`, `BaseController.cs`, `UsersController.cs` | **Delete** | No counterpart in OneMasaito |
 | `Controllers/HomeController.cs` | **Rewrite** (§ 6) | |
 | `Database/script.sql` | **Keep** (untracked — commit it now) | The schema |
@@ -1172,7 +1172,9 @@ Solution Explorer → **Show All Files** (toolbar icon) → select `Content\buil
 
 ### 7.3 `Content/Site.css`
 
-Replace the MVC template's `Site.css` with the loader spinner that OneMasaito's theme ships (its `sb-admin-2.css` defines `.loader`; CoreUI's `style.css` does not), plus the icon-button helper class OneMasaito's views use.
+Replace the MVC template's `Site.css` with the loader spinner that OneMasaito's theme ships (its `sb-admin-2.css` defines `.loader`; CoreUI's `style.css` does not), the icon-button helper class OneMasaito's views use, and a small shim that gives angular-growl back the Bootstrap 4 look it has in OneMasaito.
+
+⚠️ **DEVIATION** — the growl shim is CoreUI-specific. angular-growl puts an `icon` class on every notification for its severity image, and CoreUI's `style.css` defines `.icon` as a 1rem inline-block (for CoreUI Icons), which collapses the notification to a 47-pixel box. Bootstrap 5 also dropped the `.close` class that growl's × and countdown buttons use. Without the shim the growls render, but unreadably.
 
 ```css
 /* Full-page loader shown by _Layout until mainController.Init() has loaded the current user
@@ -1199,6 +1201,40 @@ Replace the MVC template's `Site.css` with the loader spinner that OneMasaito's 
 /* OneMasaito's helper for icon-only buttons in the accounts grid. */
 .icon-text-white-50 {
     color: rgba(255, 255, 255, 0.5);
+}
+
+/* angular-growl on Bootstrap 5 / CoreUI — restore the Bootstrap 4 look OneMasaito had.
+   1. CoreUI's own `.icon` rule (style.css) collapses any element carrying that class to a
+      1rem inline-block; angular-growl puts `icon` on every growl item for its severity image,
+      so undo that here.
+   2. Bootstrap 5 dropped `.close` (now `.btn-close`); growl's × and countdown buttons still
+      use it, so re-create Bootstrap 4's `.close`, scoped to growl. */
+.growl-container > .growl-item.icon {
+    display: block;
+    width: auto;
+    height: auto;
+    font-size: inherit;
+    color: var(--cui-alert-color);
+    text-align: left;
+    vertical-align: baseline;
+}
+
+.growl-container > .growl-item > button.close {
+    float: right;
+    padding: 0;
+    margin-left: 4px;
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #000;
+    text-shadow: 0 1px 0 #fff;
+    background-color: transparent;
+    border: 0;
+    opacity: .5;
+}
+
+.growl-container > .growl-item > button.close:hover {
+    opacity: .75;
 }
 ```
 
@@ -1257,6 +1293,7 @@ namespace CoreUIDemo
             bundles.Add(scriptsBundle);
 
             bundles.Add(new ScriptBundle("~/bundles/angular").Include(
+                "~/App/GrowlConfig.js",
                 "~/App/App.js",
                 "~/App/Controller/Login.js",
                 "~/App/Controller/UserAccounts.js"
@@ -1661,14 +1698,29 @@ git commit -m "feat: layout, login and dashboard views"
 
 ## § 9 — User Accounts view and Angular controllers
 
-The three Angular files mirror OneMasaito's `App/App.js`, `App/Controller/Login.js` and `App/Controller/UserAccounts.js`: **one Angular module per page**. `app` (the layout) lists the page modules as dependencies; `useraccount` depends on `app` back (Angular tolerates the cycle; OneMasaito relies on it); `login` stands alone because the login page has no layout. All three files are in `~/bundles/angular` and load on every page.
+Three Angular files mirror OneMasaito's `App/App.js`, `App/Controller/Login.js` and `App/Controller/UserAccounts.js`: **one Angular module per page**. `app` (the layout) lists the page modules as dependencies; `useraccount` depends on `app` back (Angular tolerates the cycle; OneMasaito relies on it); `login` stands alone because the login page has no layout. A fourth, tiny file — `App/GrowlConfig.js` — holds the growl settings both `app` and `login` share. All four files are in `~/bundles/angular` and load on every page.
 
 Validation in the browser is done the OneMasaito way: a chain of `if / else if` checks that each `growl.error(...)` a fixed string, with the actual `$http` call in the final `else`. The two user-requested rules (letters-only names, 6-character passwords) are added to those chains with the same shape. Modals are shown/hidden through two tiny global helpers because CoreUI has no jQuery plugin API.
+
+⚠️ **DEVIATION** — OneMasaito passes `{ ttl: N }` (and sometimes `title: "Error!"`) on every growl call, with N varying from 2000 to 5000 across the files. Here the time-to-live is set **once**, per severity, in `GrowlConfig.js` (success 3 s, error 5 s), and every call is just `growl.error("…")` / `growl.success("…")` with no title — the red/green box already says which it is. A single call can still pass `{ ttl: N }` to override. See `docs/superpowers/specs/2026-09-21-global-growl-ttl-design.md`.
+
+### 9.0 `App/GrowlConfig.js`
+
+New file. Add it to the project (`<Content Include="App\GrowlConfig.js" />` next to `App\App.js` in the `.csproj`, or *Include In Project* from Solution Explorer); § 7.4 already lists it first in `~/bundles/angular`.
+
+```js
+angular.module("growlConfig", ["angular-growl"])
+    .config(['growlProvider', function (growlProvider) {
+        growlProvider.globalTimeToLive({ success: 3000, error: 5000, warning: 5000, info: 3000 });
+    }]);
+```
+
+angular-growl resolves a message's TTL as `options.ttl || globalTtl[severity]`, so with no inline `ttl` every message uses these values. `login` and `app` both list `growlConfig` as a dependency (below); `useraccount` gets it through `app`.
 
 ### 9.1 `App/App.js`
 
 ```js
-var app = angular.module('app', ["angular-growl", "login", "useraccount"])
+var app = angular.module('app', ["angular-growl", "growlConfig", "login", "useraccount"])
     .controller("mainController", ['$scope', '$location', '$http', 'growl', function ($scope, $location, $http, growl) {
         var main = this;
 
@@ -1686,10 +1738,10 @@ var app = angular.module('app', ["angular-growl", "login", "useraccount"])
 
         PopUpMessage = function (data) {
             if (data.message == "Saved" || data.message == "Updated" || data.message == "Deleted") {
-                growl.success("Successfully " + data.message, { ttl: 4000 });
+                growl.success("Successfully " + data.message);
             }
             else {
-                growl.error(data.message, { title: "Error!", ttl: 5000 });
+                growl.error(data.message);
             }
         };
 
@@ -1716,10 +1768,10 @@ var app = angular.module('app', ["angular-growl", "login", "useraccount"])
 
         $scope.ChangePassword = function (value) {
             if (value.NewPassword == "" || value.NewPassword == null || value.NewPassword.length < 6) {
-                growl.error("Password must be at least 6 characters", { title: "Error!", ttl: 3000 });
+                growl.error("Password must be at least 6 characters");
             }
             else if (value.ConfirmPassword != value.NewPassword) {
-                growl.error("Password Not Match!", { title: "Error!", ttl: 3000 });
+                growl.error("Password Not Match!");
 
                 value.CurrentPassword = "";
 
@@ -1734,12 +1786,12 @@ var app = angular.module('app', ["angular-growl", "login", "useraccount"])
                     data: { password: value }
                 }).then(function (data) {
                     if (data.data.errorMessage == "") {
-                        growl.success("Password Successfully Changed", { ttl: 2000 });
+                        growl.success("Password Successfully Changed");
 
                         HideModal("PasswordModal");
                     }
                     else {
-                        growl.error(data.data.errorMessage, { title: "Error!", ttl: 3000 });
+                        growl.error(data.data.errorMessage);
 
                         value.CurrentPassword = "";
 
@@ -1758,7 +1810,7 @@ var app = angular.module('app', ["angular-growl", "login", "useraccount"])
                 arguments: { "Content-Type": "application/json" }
             }).then(function (data) {
                 if (data.data != "") {
-                    growl.error(data.data, { title: "Error!", ttl: 3000 });
+                    growl.error(data.data);
                 }
                 else {
                     HideModal("logoutModal");
@@ -1783,12 +1835,12 @@ var app = angular.module('app', ["angular-growl", "login", "useraccount"])
 - `main.ItemLoad` starts `true`, `Init()` flips it to `false` while `/Home/GetCurrentUser` is in flight, then back to `true` — that is what shows and hides the `.loader` in `_Layout`. (OneMasaito's exact sequence.)
 - `arguments: { "Content-Type": ... }` is not an `$http` option — it is a harmless typo carried over from OneMasaito; `$http` sends JSON by default.
 
-⚠️ **DEVIATION** — the 35-module dependency list becomes 2; `main.EntityList` / `main.ProjectList` / `main.SelectedModule` / `$scope.SelectModule` are gone; the `$("#sidebarToggle")` block is gone; the password-length check is new; `HideModal("logoutModal")` before redirecting is new (CoreUI leaves the modal backdrop on the page otherwise).
+⚠️ **DEVIATION** — the 35-module dependency list becomes 4 (`angular-growl`, `growlConfig`, `login`, `useraccount` — the last two are the page modules); `main.EntityList` / `main.ProjectList` / `main.SelectedModule` / `$scope.SelectModule` are gone; the `$("#sidebarToggle")` block is gone; the password-length check is new; `HideModal("logoutModal")` before redirecting is new (CoreUI leaves the modal backdrop on the page otherwise).
 
 ### 9.2 `App/Controller/Login.js`
 
 ```js
-angular.module("login", ["angular-growl"])
+angular.module("login", ["angular-growl", "growlConfig"])
     .controller("loginController", ['$scope', '$location', '$http', 'growl', function ($scope, $location, $http, growl) {
         var vm = this;
 
@@ -1808,7 +1860,7 @@ angular.module("login", ["angular-growl"])
                 }
             }).then(function (data) {
                 if (data.data.errorMessage != "") {
-                    growl.error(data.data.errorMessage, { title: "Error!", ttl: 3000 });
+                    growl.error(data.data.errorMessage);
                 }
                 else {
                     window.location.href = "/Home/Index";
@@ -1818,7 +1870,7 @@ angular.module("login", ["angular-growl"])
     }]);
 ```
 
-A straight copy of OneMasaito's file. Enter anywhere on the page submits (jQuery `keypress`), the response's `errorMessage` decides between a growl and a redirect. There is no client-side validation here because OneMasaito has none: an empty username/password simply comes back as `Invalid Username or Password!!`.
+A copy of OneMasaito's file plus the `growlConfig` dependency and the ttl-less growl call. Enter anywhere on the page submits (jQuery `keypress`), the response's `errorMessage` decides between a growl and a redirect. There is no client-side validation here because OneMasaito has none: an empty username/password simply comes back as `Invalid Username or Password!!`.
 
 ### 9.3 `App/Controller/UserAccounts.js`
 
@@ -1864,28 +1916,28 @@ angular.module("useraccount", ["app"])
         $scope.Save = function () {
 
             if (vm.Modal.Username == "" || vm.Modal.Username == null) {
-                growl.error("Please input Username", { ttl: 5000 });
+                growl.error("Please input Username");
             }
             else if (vm.ModalHeader === "New" && (vm.Modal.Password == "" || vm.Modal.Password == null)) {
-                growl.error("Please input Password", { ttl: 5000 });
+                growl.error("Please input Password");
             }
             else if (vm.ModalHeader === "New" && vm.Modal.Password.length < 6) {
-                growl.error("Password must be at least 6 characters", { ttl: 5000 });
+                growl.error("Password must be at least 6 characters");
             }
             else if (vm.Modal.FirstName == "" || vm.Modal.FirstName == null) {
-                growl.error("Please input First Name", { ttl: 5000 });
+                growl.error("Please input First Name");
             }
             else if (!namePattern.test(vm.Modal.FirstName)) {
-                growl.error("First Name must contain letters only", { ttl: 5000 });
+                growl.error("First Name must contain letters only");
             }
             else if (vm.Modal.LastName == "" || vm.Modal.LastName == null) {
-                growl.error("Please input Last Name", { ttl: 5000 });
+                growl.error("Please input Last Name");
             }
             else if (!namePattern.test(vm.Modal.LastName)) {
-                growl.error("Last Name must contain letters only", { ttl: 5000 });
+                growl.error("Last Name must contain letters only");
             }
             else if (vm.Modal.Role == "" || vm.Modal.Role == null) {
-                growl.error("Please select Role", { ttl: 5000 });
+                growl.error("Please select Role");
             }
             else {
                 $http({
@@ -1934,17 +1986,17 @@ angular.module("useraccount", ["app"])
         $scope.ChangePassword = function () {
 
             if (vm.Change.NewPassword == "" || vm.Change.NewPassword == null) {
-                growl.error("Please input New Password", { ttl: 5000 });
+                growl.error("Please input New Password");
             }
             else if (vm.Change.ConfirmPassword == "" || vm.Change.ConfirmPassword == null) {
-                growl.error("Please input Confirm Password", { ttl: 5000 });
+                growl.error("Please input Confirm Password");
             }
             else if (vm.Change.NewPassword.length < 6) {
-                growl.error("Password must be at least 6 characters", { ttl: 5000 });
+                growl.error("Password must be at least 6 characters");
             }
             else {
                 if (vm.Change.NewPassword != vm.Change.ConfirmPassword) {
-                    growl.error("Password Not Match!", { ttl: 5000 });
+                    growl.error("Password Not Match!");
                 }
                 else {
                     $http({
@@ -1957,14 +2009,14 @@ angular.module("useraccount", ["app"])
 
                     }).then(function (data) {
                         if (data.data.errorMessage == "") {
-                            growl.success("Password Successfully Changed", { ttl: 2000 });
+                            growl.success("Password Successfully Changed");
 
                             $scope.Init();
 
                             HideModal("ChangePasswordModal");
                         }
                         else {
-                            growl.error(data.data.errorMessage, { title: "Error", ttl: 2000 })
+                            growl.error(data.data.errorMessage)
 
                             vm.Change.NewPassword = "";
 
@@ -1984,7 +2036,7 @@ angular.module("useraccount", ["app"])
 
         $scope.SaveStatus = function () {
             if (vm.Status.ConfirmPassword == "" || vm.Status.ConfirmPassword == null) {
-                growl.error("Please input Password to proceed", { ttl: 5000 });
+                growl.error("Please input Password to proceed");
             }
             else {
                 $http({
@@ -1996,14 +2048,14 @@ angular.module("useraccount", ["app"])
                     }
                 }).then(function (data) {
                     if (data.data.errorMessage == "") {
-                        growl.success("Account Status Successfully Changed", { ttl: 2000 });
+                        growl.success("Account Status Successfully Changed");
 
                         $scope.Init();
 
                         HideModal("UpdateStatusModal");
                     }
                     else {
-                        growl.error(data.data.errorMessage, { title: "Error", ttl: 2000 })
+                        growl.error(data.data.errorMessage)
 
                         vm.Status.ConfirmPassword = "";
 
@@ -2271,7 +2323,8 @@ The conversion is complete. `docs/ARCHITECTURE.md` is the reference from here on
 | Icons show as empty squares. | Fonts not next to `free.min.css`, or fonts not included in the project. | `Content/vendor/@coreui/icons/fonts/CoreUI-Icons-Free.*` must exist and be included. |
 | Console: `coreui is not defined`. | `coreui.bundle.min.js` missing from `~/bundles/scripts`, or listed after `App.js`. | § 7.4 order: CoreUI before Angular; both in `<head>`. |
 | Console: `Unknown provider: growlProvider` / `Module 'angular-growl' is not available`. | `angular-growl.min.js` not in `~/bundles/scripts`, or listed before `angular.min.js`. | § 7.1 copy, § 7.4 order. |
-| Console: `[$injector:modulerr] Failed to instantiate module app … Module 'useraccount' is not available`. | `UserAccounts.js` (or `Login.js`) missing from `~/bundles/angular` or not included in the project. | § 7.4, § 9. |
+| Console: `[$injector:modulerr] Failed to instantiate module app … Module 'useraccount' is not available` (or `'growlConfig'`). | `UserAccounts.js`, `Login.js` or `GrowlConfig.js` missing from `~/bundles/angular` or not included in the project. | § 7.4, § 9. |
+| Growls appear as a ~47 px box with the text spilling out beside it. | The growl shim in `Site.css` is missing — CoreUI's `.icon` rule is collapsing the notification. | § 7.3. |
 | Console on every page: `TypeError: Cannot read properties of null (reading 'querySelector')` from `color-modes.js`. | The theme dropdown (`[data-coreui-theme-value]` buttons) was removed from `_Layout`. | Put it back, or remove `color-modes.js` too. § 8.2. |
 | Login page flashes, then nothing; Network shows `POST /Home/Login` → 200 with `errorMessage: ""`, but `/Home/Index` redirects back to Login. | Cookie not set — usually the site runs on `http://localhost:PORT` but you are browsing a different host name, or third-party cookie blocking. | Browse exactly the URL IIS Express opened. |
 | Every login says `Invalid Username or Password!!`. | Seed not run, or the connection string points at a different server/database. | § 2.2 / § 2.3; confirm with `SELECT * FROM loginDemo.dbo.vw_Users` on the same instance. |

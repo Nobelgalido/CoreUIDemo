@@ -1,4 +1,4 @@
-﻿var app = angular.module('app', ["angular-growl", "login", "useraccount"])
+﻿var app = angular.module('app', ["angular-growl", "growlConfig", "login", "useraccount"])
     .controller("mainController", ['$scope', '$location', '$http', 'growl', function ($scope, $location, $http, growl) {
         var main = this;
 
@@ -16,10 +16,10 @@
 
         PopUpMessage = function (data) {
             if (data.message == "Saved" || data.message == "Updated" || data.message == "Deleted") {
-                growl.success("Successfully " + data.message, { ttl: 4000 });
+                growl.success("Successfully " + data.message);
             }
             else {
-                growl.error(data.message, { title: "Error!", ttl: 5000 });
+                growl.error(data.message);
             }
         };
 
@@ -46,10 +46,10 @@
 
         $scope.ChangePassword = function (value) {
             if (value.NewPassword == "" || value.NewPassword == null || value.NewPassword.length < 6) {
-                growl.error("Password must be at least 6 characters", { title: "Error!", ttl: 3000 });
+                growl.error("Password must be at least 6 characters");
             }
             else if (value.ConfirmPassword != value.NewPassword) {
-                growl.error("Password Not Match!", { title: "Error!", ttl: 3000 });
+                growl.error("Password Not Match!");
 
                 value.CurrentPassword = "";
 
@@ -64,12 +64,12 @@
                     data: { password: value }
                 }).then(function (data) {
                     if (data.data.errorMessage == "") {
-                        growl.success("Password Successfully Changed", { ttl: 2000 });
+                        growl.success("Password Successfully Changed");
 
                         HideModal("PasswordModal");
                     }
                     else {
-                        growl.error(data.data.errorMessage, { title: "Error!", ttl: 3000 });
+                        growl.error(data.data.errorMessage);
 
                         value.CurrentPassword = "";
 
@@ -88,7 +88,7 @@
                 arguments: { "Content-Type": "application/json" }
             }).then(function (data) {
                 if (data.data != "") {
-                    growl.error(data.data, { title: "Error!", ttl: 3000 });
+                    growl.error(data.data);
                 }
                 else {
                     HideModal("logoutModal");

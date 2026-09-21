@@ -1,4 +1,4 @@
-﻿angular.module("login", ["angular-growl"])
+﻿angular.module("login", ["angular-growl", "growlConfig"])
     .controller("loginController", ['$scope', '$location', '$http', 'growl', function ($scope, $location, $http, growl) {
         var vm = this;
 
@@ -18,7 +18,7 @@
                 }
             }).then(function (data) {
                 if (data.data.errorMessage != "") {
-                    growl.error(data.data.errorMessage, { title: "Error!", ttl: 3000 });
+                    growl.error(data.data.errorMessage);
                 }
                 else {
                     window.location.href = "/Home/Index";
