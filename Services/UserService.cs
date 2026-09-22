@@ -129,6 +129,7 @@ namespace CoreUIDemo.Services
 
             try
             {
+                
                 if (!Regex.IsMatch(_account.FirstName ?? "", NamePattern) || !Regex.IsMatch(_account.LastName ?? "", NamePattern))
                 {
                     message = NameMessage;

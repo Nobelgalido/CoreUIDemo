@@ -11,28 +11,39 @@ namespace CoreUIDemo.Controllers
 {
     public class SettingsController : Controller
     {
-        // GET: Settings
+        // GET: Settings/UserAccounts
         public ActionResult UserAccounts()
         {
             var user = UniversalHelpers.CurrentUser;
 
             if (user == null)
-                return RedirectToRoute(new { controller = "Home", action = "Login", id = UrlParameter.Optional });
-            else
-                return View();
+            {
+                return RedirectToAction("Login", "Home");
+            }
+            //    //return RedirectToRoute(new { controller = "Home", action = "Login", id = UrlParameter.Optional });
+            //else
+            return View();
         }
 
+        // POST: Settings/GetAccounts
         [HttpPost]
         public JsonResult GetAccounts()
         {
             var accountList = UserService.GetAllAccount();
 
-            return Json(new { accountList = accountList });
+            return Json(new {  accountList });
         }
 
+
+        // POST: Settings/SaveNewAccount
         [HttpPost]
         public JsonResult SaveNewAccount(UserModel account, string role)
         {
+            if (account == null)
+            {
+                return Json(new { message = "Invalid payload" });
+            }
+
             bool save;
 
             string message = "";
@@ -52,30 +63,37 @@ namespace CoreUIDemo.Controllers
                 save = UserService.UpdateAccount(account, role, out message);
 
             if (save)
+            {
                 return Json(new { message = "Saved" });
-            else
-                return Json(new { message = string.IsNullOrEmpty(message) ? "Error on Saving" : message });
+            }
+            return Json(new { message = string.IsNullOrEmpty(message) ? "Error on Saving" : message });
         }
 
+
+        // POST: Settings/AdminChangePassword
         [HttpPost]
         public JsonResult AdminChangePassword(long account, string password)
         {
             var serverResponse = "";
 
             if (password != null)
+            {
                 UserService.AdminChangePassword(account, password, out serverResponse);
-
+            }
             return Json(new { errorMessage = serverResponse });
         }
 
+
+        // POST:  Settings/UpdateStatus
         [HttpPost]
         public JsonResult UpdateStatus(long account, string password)
         {
             var serverResponse = "";
 
             if (password != null)
+            {
                 UserService.AdminUpdateStatus(account, password, out serverResponse);
-
+            }
             return Json(new { errorMessage = serverResponse });
         }
     }

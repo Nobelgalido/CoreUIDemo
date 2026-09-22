@@ -10,9 +10,17 @@
         vm.StatusFilter = "active";
 
         $scope.StatusMatch = function (acc) {
-            if (vm.StatusFilter === "all") return true;
-            return vm.StatusFilter === "active" ? acc.IsActive : !acc.IsActive;
+            if (vm.StatusFilter === "all") {
+                return true;
+            }
+
+            if (vm.StatusFilter === "active") {
+                return acc.IsActive;
+            } else {
+                return !acc.IsActive;
+            }
         };
+
 
         var namePattern = /^[a-zA-Z ]+$/;
 
@@ -44,6 +52,8 @@
         };
 
         $scope.Save = function () {
+            var FirstName = (vm.Modal.FirstName || "").trim();
+            var LastName = (vm.Modal.LastName || "").trim();
 
             if (!vm.Modal.Username) {
                 growl.error("Please input Username");
@@ -54,16 +64,16 @@
             else if (vm.ModalHeader === "New" && vm.Modal.Password.length < 6) {
                 growl.error("Password must be at least 6 characters");
             }
-            else if (!vm.Modal.FirstName) {
+            else if (!FirstName) {
                 growl.error("Please input First Name");
             }
-            else if (!namePattern.test(vm.Modal.FirstName)) {
+            else if (!namePattern.test(FirstName)) {
                 growl.error("First Name must contain letters only");
             }
-            else if (!vm.Modal.LastName) {
+            else if (!LastName) {
                 growl.error("Please input Last Name");
             }
-            else if (!namePattern.test(vm.Modal.LastName)) {
+            else if (!namePattern.test(LastName)) {
                 growl.error("Last Name must contain letters only");
             }
             else if (!vm.Modal.Role) {
@@ -77,19 +87,19 @@
                         account: vm.Modal,
                         role: vm.Modal.Role
                     }
-                }).then(function (data) {
-                    PopUpMessage(data.data);
+                }).then(function (response) {
+                    PopUpMessage(response.data);
 
                     $scope.Init();
 
-                    if (data.data.message == "Saved") {
+                    if (response.data.message == "Saved") {
                         HideModal("AccountModal");
                     }
                 });
             }
         };
 
-        $("#firstName").keypress(function (event) {
+        /*$("#firstName").keypress(function (event) {
             var inputValue = event.which;
 
             if (!(inputValue >= 65 && inputValue <= 90) && !(inputValue >= 97 && inputValue <= 122) && inputValue != 32) {
@@ -104,7 +114,7 @@
             if (!(inputValue >= 65 && inputValue <= 90) && !(inputValue >= 97 && inputValue <= 122) && inputValue != 32) {
                 event.preventDefault();
             }
-        });
+        });*/
 
         $scope.UpdatePassword = function (value) {
 
@@ -137,8 +147,8 @@
                             password: vm.Change.NewPassword
                         }
 
-                    }).then(function (data) {
-                        if (data.data.errorMessage == "") {
+                    }).then(function (response) {
+                        if (response.data.errorMessage == "") {
                             growl.success("Password Successfully Changed");
 
                             $scope.Init();
@@ -146,7 +156,7 @@
                             HideModal("ChangePasswordModal");
                         }
                         else {
-                            growl.error(data.data.errorMessage)
+                            growl.error(response.data.errorMessage)
 
                             vm.Change.NewPassword = "";
 
@@ -176,8 +186,8 @@
                         account: vm.Status.ID,
                         password: vm.Status.ConfirmPassword
                     }
-                }).then(function (data) {
-                    if (data.data.errorMessage == "") {
+                }).then(function (response) {
+                    if (response.data.errorMessage == "") {
                         growl.success("Account Status Successfully Changed");
 
                         $scope.Init();
@@ -185,7 +195,7 @@
                         HideModal("UpdateStatusModal");
                     }
                     else {
-                        growl.error(data.data.errorMessage)
+                        growl.error(response.data.errorMessage)
 
                         vm.Status.ConfirmPassword = "";
 
