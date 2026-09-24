@@ -24,7 +24,7 @@ Every snippet in this handbook is written to run in this project's actual stack.
 | Messages | `growl.success` / `growl.error` |
 | Modals | global `ShowModal(id)` / `HideModal(id)` (defined in `App/App.js`, wrapping `coreui.Modal.getOrCreateInstance`) |
 
-jQuery is loaded but used only for keypress helpers — never for Bootstrap plugins (`$(...).modal()` does not exist under CoreUI).
+jQuery is loaded but has no caller left — its only users, the two letters-only keypress helpers in `UserAccounts.js`, were commented out on 2026-09-22. Never use it for Bootstrap plugins (`$(...).modal()` does not exist under CoreUI).
 
 ## Map of the dist
 

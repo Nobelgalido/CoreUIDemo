@@ -24,7 +24,7 @@ body
 │   │   ├── li.nav-item > a.nav-link
 │   │   ├── li.nav-title
 │   │   └── li.nav-group > a.nav-link.nav-group-toggle + ul.nav-group-items
-│   └── div.sidebar-footer > button.sidebar-toggler
+│   └── div.sidebar-footer > button.sidebar-toggler        dist only — removed from _Layout.cshtml on 2026-09-22
 └── div.wrapper.d-flex.flex-column.min-vh-100
     ├── header.header.header-sticky
     │   ├── div.container-fluid          toggler · header-nav · header-nav
@@ -220,7 +220,7 @@ Angular adds `active` when the expression is true and never removes a class it d
 
 **3. Behaviour.** `coreui.Sidebar` again: the instance listens for clicks on any `[data-coreui-toggle]` inside the sidebar. `unfoldable` toggles the `sidebar-narrow-unfoldable` class (4rem wide, expands on hover); `narrow` toggles `sidebar-narrow` (4rem wide, stays narrow). Both are ignored on mobile. Which one to start with, and the other width/position variants, is the table in [08 · Customizing](./08-customizing.md).
 
-**4. In CoreUIDemo.** Unchanged from the dist.
+**4. In CoreUIDemo. Removed on 2026-09-22.** `_Layout.cshtml` has no `div.sidebar-footer` and no `button.sidebar-toggler`: the `ul.sidebar-nav` is the last child of `div.sidebar`. The sidebar is therefore always full width on desktop, and the header's `header-toggler` (hide / show) is the only sidebar control left — nothing else changes, because the toggler was pure markup plus `coreui.Sidebar`'s own delegated listener. To get narrow mode back, either paste the block above back in as the last child of the sidebar, or put `sidebar-narrow` / `sidebar-narrow-unfoldable` on `div.sidebar` permanently ([08 · Sidebar variants](./08-customizing.md#sidebar-variants)).
 
 ## Header
 
@@ -420,7 +420,7 @@ Angular adds `active` when the expression is true and never removes a class it d
 </div>
 
 <footer class="footer px-4">
-    <div><span class="text-primary"><b>&copy; CoreUIDemo 2026. Learning replica of the OneMasaito user module.</b></span></div>
+    <div><span class="text-primary"><b>&copy;2026 Management Information System.</b></span></div>
 </footer>
 ```
 

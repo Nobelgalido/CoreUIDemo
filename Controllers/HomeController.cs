@@ -60,13 +60,17 @@ namespace CoreUIDemo.Controllers
         [HttpPost]
         public JsonResult ChangePassword(ChangePasswordModel password)
         {
-            string serverResponse = "";
-            
-            if (password != null)
+            // DataAnnotations on ChangePasswordModel are the safety net only; the AngularJS form
+            // says what is wrong, so anything that reaches here bypassed the client.
+            if (password == null || !ModelState.IsValid)
             {
-                UserService.ChangePassword(password, out serverResponse);
+                return Json(new { errorMessage = "Invalid payload" });
             }
-             
+
+            string serverResponse = "";
+
+            UserService.ChangePassword(password, out serverResponse);
+
             return Json(new { errorMessage = serverResponse });
         }
 

@@ -31,6 +31,16 @@
             coreui.Modal.getOrCreateInstance(document.getElementById(id)).hide();
         };
 
+        // Re-arms the modal's form: $setPristine also clears $submitted, $setUntouched clears the
+        // per-field touched flags, so a reopened modal shows no errors from the previous attempt.
+        var ResetForm = function (form) {
+            if (form) {
+                form.$setPristine();
+
+                form.$setUntouched();
+            }
+        };
+
         $scope.Init = function () {
             main.ItemLoad = false;
             $http({
@@ -45,40 +55,35 @@
         };
 
         $scope.ChangePassword = function (value) {
-            if (!value.NewPassword || value.NewPassword.length < 6) {
-                growl.error("Password must be at least 6 characters");
+
+            // PasswordForm renders each message under its field. The match is the one cross-field
+            // rule and is not part of the form's own validity, so it is re-checked here.
+            if ($scope.PasswordForm.$invalid || value.ConfirmPassword !== value.NewPassword) {
+                return;
             }
-            else if (value.ConfirmPassword != value.NewPassword) {
-                growl.error("Password Not Match!");
 
-                value.CurrentPassword = "";
+            $http({
+                method: "POST",
+                url: "/Home/ChangePassword",
+                data: { password: value }
+            }).then(function (data) {
+                if (data.data.errorMessage == "") {
+                    growl.success("Password Successfully Changed");
 
-                value.NewPassword = "";
+                    HideModal("PasswordModal");
+                }
+                else {
+                    growl.error(data.data.errorMessage);
 
-                value.ConfirmPassword = "";
-            }
-            else {
-                $http({
-                    method: "POST",
-                    url: "/Home/ChangePassword",
-                    data: { password: value }
-                }).then(function (data) {
-                    if (data.data.errorMessage == "") {
-                        growl.success("Password Successfully Changed");
+                    value.CurrentPassword = "";
 
-                        HideModal("PasswordModal");
-                    }
-                    else {
-                        growl.error(data.data.errorMessage);
+                    value.NewPassword = "";
 
-                        value.CurrentPassword = "";
+                    value.ConfirmPassword = "";
 
-                        value.NewPassword = "";
-
-                        value.ConfirmPassword = "";
-                    }
-                });
-            }
+                    ResetForm($scope.PasswordForm);
+                }
+            });
         };
 
         $scope.Logout = function () {
@@ -104,6 +109,8 @@
             main.ChangePassword.NewPassword = "";
 
             main.ChangePassword.ConfirmPassword = "";
+
+            ResetForm($scope.PasswordForm);
         };
 
     }]);

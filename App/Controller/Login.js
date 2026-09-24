@@ -3,6 +3,12 @@
         var vm = this;
 
         $scope.TryLogin = function () {
+
+            // LoginForm carries the two required rules and renders their messages under the fields.
+            if ($scope.LoginForm.$invalid) {
+                return;
+            }
+
             $http({
                 method: "POST",
                 url: "/Home/Login",

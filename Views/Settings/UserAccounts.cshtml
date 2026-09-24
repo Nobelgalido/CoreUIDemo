@@ -66,31 +66,52 @@
                     <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
                 </div>
 
-                <form ng-submit="Save()" autocomplete="off" novalidate>
+                <form name="AccountForm" ng-submit="Save()" autocomplete="off" novalidate>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Username</label>
-                        <input type="text" class="form-control" ng-model="vm.Modal.Username" ng-disabled="vm.ModalHeader === 'Edit'" />
+                        <input type="text" class="form-control" name="Username" ng-model="vm.Modal.Username" ng-disabled="vm.ModalHeader === 'Edit'" required ng-maxlength="50" />
+                        <div class="field-feedback" ng-show="AccountForm.$submitted || AccountForm.Username.$touched">
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.Username.$error.required">Please input Username</div>
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.Username.$error.maxlength">Username is too long (maximum 50)</div>
+                        </div>
                     </div>
 
                     <div class="mb-3" ng-show="vm.ModalHeader === 'New'">
                         <label class="form-label">Password</label>
-                        <input type="password" class="form-control" ng-model="vm.Modal.Password" />
+                        <input type="password" class="form-control" name="Password" ng-model="vm.Modal.Password" ng-required="vm.ModalHeader === 'New'" ng-minlength="6" ng-maxlength="255" />
+                        <div class="field-feedback" ng-show="AccountForm.$submitted || AccountForm.Password.$touched">
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.Password.$error.required">Please input Password</div>
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.Password.$error.minlength">Password must be at least 6 characters</div>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">First Name</label>
-                        <input type="text" class="form-control" id="firstName" ng-model="vm.Modal.FirstName" />
+                        <input type="text" class="form-control" id="firstName" name="FirstName" ng-model="vm.Modal.FirstName" required ng-pattern="/^[a-zA-Z ]+$/" ng-maxlength="50" />
+                        <div class="field-feedback" ng-show="AccountForm.$submitted || AccountForm.FirstName.$touched">
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.FirstName.$error.required">Please input First Name</div>
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.FirstName.$error.pattern">First Name must contain letters only</div>
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.FirstName.$error.maxlength">First Name is too long (maximum 50)</div>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Last Name</label>
-                        <input type="text" class="form-control" id="lastName" ng-model="vm.Modal.LastName" />
+                        <input type="text" class="form-control" id="lastName" name="LastName" ng-model="vm.Modal.LastName" required ng-pattern="/^[a-zA-Z ]+$/" ng-maxlength="50" />
+                        <div class="field-feedback" ng-show="AccountForm.$submitted || AccountForm.LastName.$touched">
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.LastName.$error.required">Please input Last Name</div>
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.LastName.$error.pattern">Last Name must contain letters only</div>
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.LastName.$error.maxlength">Last Name is too long (maximum 50)</div>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Role</label>
-                        <select class="form-select" ng-model="vm.Modal.Role" ng-options="r for r in vm.RoleList"></select>
+                        <select class="form-select" name="Role" ng-model="vm.Modal.Role" ng-options="r for r in vm.RoleList" required></select>
+                        <div class="field-feedback" ng-show="AccountForm.$submitted || AccountForm.Role.$touched">
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.Role.$error.required">Please select Role</div>
+                        </div>
                     </div>
                 </div>
 
@@ -112,16 +133,24 @@
                     <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
                 </div>
 
-                <form ng-submit="ChangePassword()" autocomplete="off" novalidate>
+                <form name="ChangePasswordForm" ng-submit="ChangePassword()" autocomplete="off" novalidate>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">New Password</label>
-                        <input type="password" class="form-control" ng-model="vm.Change.NewPassword" />
+                        <input type="password" class="form-control" name="NewPassword" ng-model="vm.Change.NewPassword" required ng-minlength="6" ng-maxlength="255" />
+                        <div class="field-feedback" ng-show="ChangePasswordForm.$submitted || ChangePasswordForm.NewPassword.$touched">
+                            <div class="invalid-feedback d-block" ng-show="ChangePasswordForm.NewPassword.$error.required">Please input New Password</div>
+                            <div class="invalid-feedback d-block" ng-show="ChangePasswordForm.NewPassword.$error.minlength">Password must be at least 6 characters</div>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Confirm Password</label>
-                        <input type="password" class="form-control" ng-model="vm.Change.ConfirmPassword" />
+                        <input type="password" class="form-control" name="ConfirmPassword" ng-model="vm.Change.ConfirmPassword" required />
+                        <div class="field-feedback" ng-show="ChangePasswordForm.$submitted || ChangePasswordForm.ConfirmPassword.$touched">
+                            <div class="invalid-feedback d-block" ng-show="ChangePasswordForm.ConfirmPassword.$error.required">Please input Confirm Password</div>
+                            <div class="invalid-feedback d-block" ng-show="vm.Change.ConfirmPassword && vm.Change.ConfirmPassword !== vm.Change.NewPassword">Password Not Match!</div>
+                        </div>
                     </div>
                 </div>
 
@@ -144,12 +173,15 @@
                     <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
                 </div>
 
-                <form ng-submit="SaveStatus()" autocomplete="off" novalidate>
+                <form name="StatusForm" ng-submit="SaveStatus()" autocomplete="off" novalidate>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Confirm Password</label>
-                        <input type="password" class="form-control" ng-model="vm.Status.ConfirmPassword" />
+                        <input type="password" class="form-control" name="StatusPassword" ng-model="vm.Status.ConfirmPassword" required />
                         <div class="form-text">Enter <b>your own</b> password to confirm this change.</div>
+                        <div class="field-feedback" ng-show="StatusForm.$submitted || StatusForm.StatusPassword.$touched">
+                            <div class="invalid-feedback d-block" ng-show="StatusForm.StatusPassword.$error.required">Please input Password to proceed</div>
+                        </div>
                     </div>
                 </div>
 

@@ -22,7 +22,15 @@
         };
 
 
-        var namePattern = /^[a-zA-Z ]+$/;
+        // Re-arms a modal's form so a reopened modal never shows the previous attempt's errors:
+        // $setPristine also clears $submitted, $setUntouched clears the per-field touched flags.
+        var ResetForm = function (form) {
+            if (form) {
+                form.$setPristine();
+
+                form.$setUntouched();
+            }
+        };
 
         $scope.Init = function () {
             $http({
@@ -38,7 +46,12 @@
         $scope.NewAccount = function () {
             vm.ModalHeader = "New";
 
-            vm.Modal = { Role: "user" };
+            // Every bound field is initialised explicitly rather than left absent. A control whose
+            // validator failed parks $modelValue at undefined, so a model without the property is
+            // not a change, ngModel's watch never fires, and the rejected text stays in the input.
+            vm.Modal = { Username: "", Password: null, FirstName: "", LastName: "", Role: "user" };
+
+            ResetForm($scope.AccountForm);
 
             ShowModal("AccountModal");
         };
@@ -48,55 +61,39 @@
 
             vm.Modal = angular.copy(value);
 
+            // The grid row carries no password; null (not "") both clears any stale view value and
+            // is skipped by [StringLength] server-side, which an empty string would fail.
+            vm.Modal.Password = null;
+
+            ResetForm($scope.AccountForm);
+
             ShowModal("AccountModal");
         };
 
         $scope.Save = function () {
-            var FirstName = (vm.Modal.FirstName || "").trim();
-            var LastName = (vm.Modal.LastName || "").trim();
 
-            if (!vm.Modal.Username) {
-                growl.error("Please input Username");
+            // AccountForm carries every presence/format rule (see the modal markup); the messages
+            // are rendered under each field, so there is nothing to growl here.
+            if ($scope.AccountForm.$invalid) {
+                return;
             }
-            else if (vm.ModalHeader === "New" && !vm.Modal.Password) {
-                growl.error("Please input Password");
-            }
-            else if (vm.ModalHeader === "New" && vm.Modal.Password.length < 6) {
-                growl.error("Password must be at least 6 characters");
-            }
-            else if (!FirstName) {
-                growl.error("Please input First Name");
-            }
-            else if (!namePattern.test(FirstName)) {
-                growl.error("First Name must contain letters only");
-            }
-            else if (!LastName) {
-                growl.error("Please input Last Name");
-            }
-            else if (!namePattern.test(LastName)) {
-                growl.error("Last Name must contain letters only");
-            }
-            else if (!vm.Modal.Role) {
-                growl.error("Please select Role");
-            }
-            else {
-                $http({
-                    method: "POST",
-                    url: "/Settings/SaveNewAccount",
-                    data: {
-                        account: vm.Modal,
-                        role: vm.Modal.Role
-                    }
-                }).then(function (response) {
-                    PopUpMessage(response.data);
 
-                    $scope.Init();
+            $http({
+                method: "POST",
+                url: "/Settings/SaveNewAccount",
+                data: {
+                    account: vm.Modal,
+                    role: vm.Modal.Role
+                }
+            }).then(function (response) {
+                PopUpMessage(response.data);
 
-                    if (response.data.message == "Saved") {
-                        HideModal("AccountModal");
-                    }
-                });
-            }
+                $scope.Init();
+
+                if (response.data.message == "Saved") {
+                    HideModal("AccountModal");
+                }
+            });
         };
 
         /*$("#firstName").keypress(function (event) {
@@ -120,89 +117,90 @@
 
             vm.Change = angular.copy(value);
 
+            vm.Change.NewPassword = "";
+
+            vm.Change.ConfirmPassword = "";
+
+            ResetForm($scope.ChangePasswordForm);
+
             ShowModal("ChangePasswordModal");
         };
 
         $scope.ChangePassword = function () {
 
-            if (!vm.Change.NewPassword) {
-                growl.error("Please input New Password");
+            // The match is the one cross-field rule, shown inline by the modal and re-checked here
+            // because it is not part of the form's own validity.
+            if ($scope.ChangePasswordForm.$invalid || vm.Change.NewPassword !== vm.Change.ConfirmPassword) {
+                return;
             }
-            else if (!vm.Change.ConfirmPassword) {
-                growl.error("Please input Confirm Password");
-            }
-            else if (vm.Change.NewPassword.length < 6) {
-                growl.error("Password must be at least 6 characters");
-            }
-            else {
-                if (vm.Change.NewPassword != vm.Change.ConfirmPassword) {
-                    growl.error("Password Not Match!");
+
+            $http({
+                method: "POST",
+                url: "/Settings/AdminChangePassword",
+                data: {
+                    account: vm.Change.ID,
+                    password: vm.Change.NewPassword
+                }
+
+            }).then(function (response) {
+                if (response.data.errorMessage == "") {
+                    growl.success("Password Successfully Changed");
+
+                    $scope.Init();
+
+                    HideModal("ChangePasswordModal");
                 }
                 else {
-                    $http({
-                        method: "POST",
-                        url: "/Settings/AdminChangePassword",
-                        data: {
-                            account: vm.Change.ID,
-                            password: vm.Change.NewPassword
-                        }
+                    growl.error(response.data.errorMessage)
 
-                    }).then(function (response) {
-                        if (response.data.errorMessage == "") {
-                            growl.success("Password Successfully Changed");
+                    vm.Change.NewPassword = "";
 
-                            $scope.Init();
+                    vm.Change.ConfirmPassword = "";
 
-                            HideModal("ChangePasswordModal");
-                        }
-                        else {
-                            growl.error(response.data.errorMessage)
-
-                            vm.Change.NewPassword = "";
-
-                            vm.Change.ConfirmPassword = "";
-                        }
-                    });
+                    ResetForm($scope.ChangePasswordForm);
                 }
-            }
+            });
         };
 
         $scope.UpdateStatus = function (value) {
 
             vm.Status = angular.copy(value);
 
+            vm.Status.ConfirmPassword = "";
+
+            ResetForm($scope.StatusForm);
+
             ShowModal("UpdateStatusModal");
         };
 
         $scope.SaveStatus = function () {
-            if (!vm.Status.ConfirmPassword) {
-                growl.error("Please input Password to proceed");
-            }
-            else {
-                $http({
-                    method: "POST",
-                    url: "/Settings/UpdateStatus",
-                    data: {
-                        account: vm.Status.ID,
-                        password: vm.Status.ConfirmPassword
-                    }
-                }).then(function (response) {
-                    if (response.data.errorMessage == "") {
-                        growl.success("Account Status Successfully Changed");
 
-                        $scope.Init();
-
-                        HideModal("UpdateStatusModal");
-                    }
-                    else {
-                        growl.error(response.data.errorMessage)
-
-                        vm.Status.ConfirmPassword = "";
-
-                    }
-
-                });
+            if ($scope.StatusForm.$invalid) {
+                return;
             }
 
+            $http({
+                method: "POST",
+                url: "/Settings/UpdateStatus",
+                data: {
+                    account: vm.Status.ID,
+                    password: vm.Status.ConfirmPassword
+                }
+            }).then(function (response) {
+                if (response.data.errorMessage == "") {
+                    growl.success("Account Status Successfully Changed");
+
+                    $scope.Init();
+
+                    HideModal("UpdateStatusModal");
+                }
+                else {
+                    growl.error(response.data.errorMessage)
+
+                    vm.Status.ConfirmPassword = "";
+
+                    ResetForm($scope.StatusForm);
+                }
+            });
         }
     });

@@ -39,7 +39,7 @@ namespace CoreUIDemo.Controllers
         [HttpPost]
         public JsonResult SaveNewAccount(UserModel account, string role)
         {
-            if (account == null)
+            if (account == null || !ModelState.IsValid)
             {
                 return Json(new { message = "Invalid payload" });
             }

@@ -71,7 +71,7 @@ Three bundles, named exactly as OneMasaito's, registered in `App_Start/BundleCon
 | Bundle | Contents, in order | Why this order |
 |---|---|---|
 | `~/Content/css` | `style.css` → `free.min.css` → `simplebar.css` → `angular-growl.min.css` → `Site.css` | Theme first; `Site.css` last so its rules win |
-| `~/bundles/scripts` | `jquery-{version}.js` → `coreui.bundle.min.js` → `simplebar.min.js` → `angular.min.js` → `angular-growl.min.js` | jQuery is used only by OneMasaito's keypress filters; **CoreUI before Angular** so the `coreui` global exists when controllers run; `angular-growl` registers a module on `angular`, so Angular first |
+| `~/bundles/scripts` | `jquery-{version}.js` → `coreui.bundle.min.js` → `simplebar.min.js` → `angular.min.js` → `angular-growl.min.js` | jQuery is loaded first out of habit, but has had no caller since the `#firstName` / `#lastName` keypress filters were commented out (2026-09-22); **CoreUI before Angular** so the `coreui` global exists when controllers run; `angular-growl` registers a module on `angular`, so Angular first |
 | `~/bundles/angular` | `GrowlConfig.js` → `App.js` → `Login.js` → `UserAccounts.js` | `GrowlConfig.js` declares the `growlConfig` module (global growl TTLs) that both `app` and `login` list; `App.js` declares the root module the others depend on / are depended on by. Order inside this bundle does not matter to Angular (modules resolve at bootstrap), but keep it readable: shared config first |
 
 Three rules that are easy to get wrong:
@@ -104,10 +104,7 @@ The dist's `index.html` is 2,270 lines; the *shell* is about 60 of them. This is
       </ul>
     </li>
   </ul>
-  <div class="sidebar-footer border-top d-none d-md-flex">
-    <button class="sidebar-toggler" type="button" data-coreui-toggle="unfoldable"></button>
-  </div>
-</div>
+</div>                                               <!-- the dist's div.sidebar-footer > button.sidebar-toggler[data-coreui-toggle="unfoldable"] is NOT in _Layout.cshtml (removed 2026-09-22): no footer bar, no narrow/unfoldable toggle -->
 
 <div class="wrapper d-flex flex-column min-vh-100">
   <header class="header header-sticky p-0 mb-4">
@@ -115,7 +112,7 @@ The dist's `index.html` is 2,270 lines; the *shell* is about 60 of them. This is
       <button class="header-toggler" …>              <!-- kept; onclick → coreui.Sidebar toggle -->
       <ul class="header-nav ms-auto">…</ul>           <!-- three icon links → replaced by the search box (OneMasaito) -->
       <ul class="header-nav">
-        <li class="nav-item dropdown">…theme…</li>    <!-- KEPT (see §9) -->
+        <li class="nav-item dropdown">…theme…</li>    <!-- KEPT; the toggle shows a contrast SVG, not the word "Theme" (see §9) -->
         <li class="nav-item py-1"><div class="vr …"></div></li>
         <li class="nav-item dropdown">…avatar…</li>   <!-- → user dropdown: name + Change Password + Logout -->
       </ul>
@@ -153,7 +150,7 @@ Kept from the dist: the outer `bg-body-tertiary min-vh-100 d-flex flex-row align
 
 Removed because OneMasaito's login has none of it: the email-type input, the show-password eye button and its tooltip, "I forgot password", "Remember me", the "or" divider, "Login with Google / Apple", "Need an account? Sign up".
 
-Changed: the form carries `ng-submit="TryLogin()"` and the button is `type="submit"` (the form has no `action`, so `ngSubmit` prevents the default navigation and both the button and Enter call the controller — no jQuery `keypress` handler needed); inputs carry `ng-model="vm.Username"` / `vm.Password`; a `<div growl class="fading">` sits at the top of `<body>`; the version line at the bottom is OneMasaito's.
+Changed: the form is named `LoginForm`, both inputs are `required` and render a message under the field (2026-09-24 — the page had no client validation at all before), the form carries `ng-submit="TryLogin()"` and the button is `type="submit"` (the form has no `action`, so `ngSubmit` prevents the default navigation and both the button and Enter call the controller — no jQuery `keypress` handler needed); inputs carry `ng-model="vm.Username"` / `vm.Password`; a `<div growl class="fading">` sits at the top of `<body>`. OneMasaito's `version 1.0.0` line under the form, and the `. . .` ellipses in the two placeholders, were removed on 2026-09-22.
 
 Why `Layout = null` and `ng-app="login"`: OneMasaito's login page is a self-contained HTML document with its own Angular module; it does not share the layout (there is no sidebar to show before you log in) and does not load `mainController` (which would immediately call `/Home/GetCurrentUser`). The same structure is kept.
 
@@ -171,11 +168,11 @@ Why `data-coreui-theme="light"` on `<html>`: this page does not load `color-mode
 | `data-dismiss="modal"` | `data-coreui-dismiss="modal"` |
 | `data-toggle="dropdown"` | `data-coreui-toggle="dropdown"` |
 | `data-toggle="collapse" data-target="#x"` (sidebar groups) | Not needed — `ul.sidebar-nav[data-coreui="navigation"]` + `li.nav-group > a.nav-group-toggle` are wired by CoreUI's Navigation component |
-| `$('#sidebarToggle').click(...)` + `body.sidebar-toggled` | `coreui.Sidebar.getOrCreateInstance(el).toggle()` on the header button; `button.sidebar-toggler[data-coreui-toggle="unfoldable"]` in the sidebar footer |
+| `$('#sidebarToggle').click(...)` + `body.sidebar-toggled` | `coreui.Sidebar.getOrCreateInstance(el).toggle()` on the header button — the only sidebar control left. (The dist also puts a `button.sidebar-toggler[data-coreui-toggle="unfoldable"]` in the sidebar footer; `_Layout.cshtml` dropped that whole footer on 2026-09-22.) |
 | `bootstrap.Tooltip` / `new bootstrap.Modal(...)` | `coreui.Tooltip` / `new coreui.Modal(...)` — `bootstrap.*` is `undefined` |
 | Popper loaded separately | Included in `coreui.bundle.min.js` |
 
-jQuery is still loaded (first in `~/bundles/scripts`) only because OneMasaito's `UserAccounts.js` uses `$("#firstName").keypress(...)` / `$('#lastName').keypress(...)` for the letters-only filters. (OneMasaito's `Login.js` also used `$(document).on('keypress', ...)` for Enter; CoreUIDemo replaces that with `ng-submit` on the form.) CoreUI itself never touches it.
+jQuery is still first in `~/bundles/scripts`, but since 2026-09-22 **nothing in the app calls it**. The two letters-only filters `UserAccounts.js` inherited from OneMasaito — `$("#firstName").keypress(...)` / `$('#lastName').keypress(...)` — are commented out (`Save()` trims the names and tests the regex instead), and OneMasaito's `$(document).on('keypress', ...)` Enter handler in `Login.js` had already been replaced by `ng-submit` on the form. CoreUI itself never touches jQuery. Leaving it bundled is harmless and keeps the filters one uncomment away; dropping it means removing the `jquery-{version}.js` entry from `~/bundles/scripts` in `BundleConfig.cs` (the package can stay) and re-checking nothing new has started using `$`.
 
 Where the two modal helpers live and why they are global: `BUILD_GUIDE.md` → [§ 9.1](BUILD_GUIDE.md#91-appappjs).
 
@@ -189,6 +186,7 @@ Icons used by CoreUIDemo (every one verified present in `free.min.css`):
 |---|---|
 | Sidebar: Dashboard / Settings / User Account | `cil-speedometer` / `cil-settings` / `cil-people` |
 | Header: toggler / search / user | `cil-menu` / `cil-search` / `cil-user` |
+| Header: theme toggle | an inline `<svg>` (CoreUI's contrast glyph), not a font icon — § 9 |
 | User dropdown: Change Password / Logout | `cil-lock-locked` / `cil-account-logout` |
 | Grid: New / Edit / Reset Password / Deactivate / Activate | `cil-plus` / `cil-pencil` / `cil-lock-locked` / `cil-ban` / `cil-check-circle` |
 
@@ -202,7 +200,8 @@ The grid's action buttons are CoreUI ghost buttons — `btn-ghost-secondary` for
 
 - Reads `localStorage['coreui-free-bootstrap-admin-template-theme']` (`light` / `dark` / `auto`), defaulting to `auto` (= the OS preference).
 - Sets `data-coreui-theme="light|dark"` on `<html>`. `style.css` keys every colour off that attribute, so the whole page — including the `.sidebar-dark` sidebar and Bootstrap's `bg-body-*` / `text-body-*` classes — switches.
-- On `DOMContentLoaded`, calls `showActiveTheme()`, which **requires** at least one element with `data-coreui-theme-value` (it does `btnToActive.querySelector(...)` on the match). No buttons → `TypeError` in the console on every page. This is why `_Layout.cshtml` keeps the theme dropdown. The dist's version has SVG icons inside the buttons and a `.theme-icon-active` SVG in the toggle; CoreUIDemo uses text labels — the script tolerates a missing SVG, just not a missing button.
+- On `DOMContentLoaded`, calls `showActiveTheme()`, which **requires** at least one element with `data-coreui-theme-value` (it does `btnToActive.querySelector(...)` on the match). No buttons → `TypeError` in the console on every page. This is why `_Layout.cshtml` keeps the theme dropdown. The dist's version has SVG icons inside the buttons and a `.theme-icon-active` SVG in the toggle; CoreUIDemo keeps **text labels in the dropdown items** and, since 2026-09-22, CoreUI's **contrast SVG in the toggle**.
+- That combination means the header icon is **static**. `showActiveTheme` only restyles the toggle when `btnToActive.querySelector('svg')` finds an SVG inside the chosen item; with text-only items it skips the whole branch, so the contrast glyph stays put whichever theme is active (the theme itself still applies — only the icon is frozen). To make the icon follow the choice, put a sun / moon / contrast `<svg>` inside each of the three `dropdown-item` buttons; `activeThemeIcon.innerHTML = svgOfActiveBtn.innerHTML` then rewrites the toggle on every click. Keep the `theme-icon-active` class on the outer `<span>` — `document.querySelector('.theme-icon-active')` takes the first match in document order, and the span is the element whose contents get replaced.
 
 The dropdown markup used in `_Layout.cshtml`:
 
@@ -210,7 +209,11 @@ The dropdown markup used in `_Layout.cshtml`:
 <li class="nav-item dropdown">
     <button class="btn btn-link nav-link py-2 px-2 d-flex align-items-center" type="button"
             aria-expanded="false" data-coreui-toggle="dropdown">
-        <span class="theme-icon-active">Theme</span>
+        <span class="theme-icon-active">
+            <svg class="icon icon-lg theme-icon-active" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                <path fill="var(--ci-primary-color, currentcolor)" d="M256 16C123.452 16 16 123.452 16 256s107.452 240 240 240 240-107.452 240-240S388.548 16 256 16m-22 446.849a208.35 208.35 0 0 1-169.667-125.9c-.364-.859-.706-1.724-1.057-2.587L234 429.939Zm0-69.582L50.889 290.76A210 210 0 0 1 48 256q0-9.912.922-19.67L234 339.939Zm0-90L54.819 202.96a206 206 0 0 1 9.514-27.913Q67.1 168.5 70.3 162.191L234 253.934Zm0-86.015L86.914 134.819a209.4 209.4 0 0 1 22.008-25.9q3.72-3.72 7.6-7.228L234 166.027Zm0-87.708-89.648-49.093A206.95 206.95 0 0 1 234 49.151ZM464 256a207.775 207.775 0 0 1-198 207.761V48.239A207.79 207.79 0 0 1 464 256" class="ci-primary" />
+            </svg>
+        </span>
     </button>
     <ul class="dropdown-menu dropdown-menu-end" style="--cui-dropdown-min-width: 8rem">
         <li><button class="dropdown-item" type="button" data-coreui-theme-value="light">Light</button></li>
@@ -235,6 +238,28 @@ Options:
       })();
   </script>
   ```
+
+## 9a. Form validation (AngularJS + CoreUI)
+
+Validation messages are AngularJS's job; CoreUI only supplies the styling hooks. The markup pattern is the AngularJS 1.8 Forms guide's own — a named form, `name` on every input, the rule as an attribute, one message div per error key, revealed by `Form.$submitted || Form.Field.$touched`:
+
+```html
+<form name="AccountForm" ng-submit="Save()" autocomplete="off" novalidate>
+    <input class="form-control" name="Username" ng-model="vm.Modal.Username" required ng-maxlength="50" />
+    <div ng-show="AccountForm.$submitted || AccountForm.Username.$touched">
+        <div class="invalid-feedback d-block" ng-show="AccountForm.Username.$error.required">Please input Username</div>
+    </div>
+</form>
+```
+
+Three CoreUI/Bootstrap 5 specifics:
+
+- **`.invalid-feedback` needs `d-block` here.** Bootstrap 5 reveals it only as a sibling of an `.is-invalid` control; visibility in this app comes from `ng-show`, so the display has to be forced.
+- **No `ng-class` on any input.** AngularJS already puts `ng-invalid` / `ng-touched` on controls and `ng-submitted` on the `<form>`, so one rule in `Site.css` styles every field: `form.ng-submitted .form-control.ng-invalid, .form-control.ng-invalid.ng-touched { border-color: var(--cui-form-invalid-border-color); }`. That token is CoreUI's own and has a dark-mode value, so both themes follow with no extra work.
+- **`ng-maxlength`, not `maxlength`.** The HTML attribute blocks typing and truncates a paste silently — the rule would never be able to show its message.
+- **The message row must keep its space while hidden.** Each wrapper carries `class="field-feedback"` and `Site.css` overrides AngularJS's `.ng-hide` for it (`display: block !important; visibility: hidden`), which works because `Site.css` is bundled last. Skip this and the form has a real input bug: revealing a message on blur pushes the submit button down between mousedown and mouseup, the browser never fires `click`, and the first press after typing is silently swallowed.
+
+CoreUI's own `was-validated` / `needs-validation` classes and the dist's `forms/validation.html` script are **not** used: they listen for a native `submit` event, which `ng-submit` handles first. The three-tier contract behind all of this (who owns which message) is `docs/superpowers/specs/2026-09-24-dataannotations-angular-validation-design.md`.
 
 ## 10. Bootstrap 4 → Bootstrap 5 class renames
 

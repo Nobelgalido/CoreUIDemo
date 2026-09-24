@@ -52,3 +52,24 @@
 .growl-container > .growl-item > button.close:hover {
     opacity: .75;
 }
+
+/* AngularJS validation state, per the AngularJS 1.8 Forms guide: ngModel puts ng-invalid /
+   ng-touched on each control and the form directive puts ng-submitted on the <form>, so the
+   invalid border needs no ng-class on any input. Same reveal rule as the messages themselves
+   ($submitted || $touched), and --cui-form-invalid-border-color follows CoreUI's dark mode.
+   Contract: docs/superpowers/specs/2026-09-24-dataannotations-angular-validation-design.md */
+form.ng-submitted .form-control.ng-invalid,
+form.ng-submitted .form-select.ng-invalid,
+.form-control.ng-invalid.ng-touched,
+.form-select.ng-invalid.ng-touched {
+    border-color: var(--cui-form-invalid-border-color);
+}
+
+/* The validation message row keeps its space while hidden. Without this, revealing a message
+   when a field is blurred pushes the Save button out from under the pointer between mousedown
+   and mouseup, so the browser never fires a click and the first Save press after typing is
+   silently swallowed. Site.css is bundled last, so this wins over AngularJS's own .ng-hide. */
+.field-feedback.ng-hide {
+    display: block !important;
+    visibility: hidden;
+}

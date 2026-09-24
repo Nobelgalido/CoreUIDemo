@@ -179,7 +179,7 @@ The `<entityFramework>` block becomes:
   </entityFramework>
 ```
 
-Leave `<connectionStrings>`, `<runtime>`, `<system.codedom>` and `<appSettings>` as they are (the connection string is revisited in § 2.3).
+Leave `<connectionStrings>`, `<runtime>`, `<system.codedom>` and `<appSettings>` as they are (the connection string is revisited in § 2.3). In the committed file `<system.codedom>` sits *after* `<entityFramework>` rather than before `<connectionStrings>` (Visual Studio moved it on 2026-09-22); element order inside `<configuration>` is irrelevant here, so either position is fine.
 
 ### 1.4 Delete the files
 
@@ -208,6 +208,8 @@ Get-ChildItem Scripts\js -Exclude color-modes.js, color-modes.js.map | Remove-It
 - **Or by hand**: open `CoreUIDemo.csproj` in a text editor and remove every `<Compile Include="…">` and `<Content Include="…">` line whose file no longer exists. The `<Compile>` lines to remove are exactly:
   `Controllers\AccountController.cs`, `Controllers\BaseController.cs`, `Controllers\UsersController.cs`, `Helpers\ValidateAngularAntiForgeryTokenAttribute.cs`, `Models\AuthenticatedUserData.cs`, the five `Models\ViewModels\*.cs`, `Services\IUserService.cs`, `Services\Userservice.cs`.
   The `<Content>` lines to remove are every line starting with `Content\bootstrap`, `Content\coreui`, `Content\css\`, `Content\vendors\`, `Content\icons\`, `Content\themes\`, `Scripts\bootstrap`, `Scripts\coreui`, `Scripts\js\` (except `Scripts\js\color-modes.js`), plus `App\Controller\Shared\main.controller.js`, `App\Controller\Users\users.list.controller.js`, `Views\Account\Login.cshtml`, `Views\Users\Index.cshtml`, `Views\Users\Profile.cshtml`, `Views\Home\About.cshtml`, `Views\Home\Contact.cshtml`, `Views\Shared\_LoginLayout.cshtml`.
+
+One reference is worth knowing about before Visual Studio rewrites it under you: `Microsoft.CodeDom.Providers.DotNetCompilerPlatform` sits in the same `<ItemGroup>` as the other NuGet references and carries its full strong name (`Version=2.0.1.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35`) instead of a bare `Include="Microsoft.CodeDom.Providers.DotNetCompilerPlatform"` in an `<ItemGroup>` of its own. Any package operation can do this. It is harmless as long as the `<HintPath>` still points at `packages\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.2.0.1\lib\net45\` and `Web.config`'s `<system.codedom>` compiler entry names the same version - if they disagree, Appendix A's first row is the symptom.
 
 A file that is on disk but not in the csproj is **not compiled and not deployed**. A file that is in the csproj but not on disk **breaks the build**. Both directions matter for the rest of this guide: every time a section says "add file X", also make sure it is included in the project (Solution Explorer → **Show All Files** → right-click → **Include In Project**), and the ✅ VERIFY build at the end of each section will catch it if you forget.
 
@@ -346,20 +348,48 @@ Three files, each a port of one OneMasaito file. Create them in these exact fold
 
 Mirrors `OneMasaito/Models/UserModel.cs`: one file holding both `UserModel` and `ChangePasswordModel`. `UserModel` is the DTO for everything user-shaped — the login result, the current user, the account grid rows, the create/edit payload.
 
+⚠️ **DEVIATION (2026-09-24)** — both classes carry DataAnnotations, which OneMasaito has nowhere. They are the **server-side safety net and nothing else**: every attribute deliberately omits `ErrorMessage`, because the user-facing wording belongs to the AngularJS form in the view (§ 8, § 9). An invalid `ModelState` therefore means a client was bypassed, and the action answers with one terse `"Invalid payload"` rather than a framework message. The full contract is in `docs/superpowers/specs/2026-09-24-dataannotations-angular-validation-design.md`.
+
+Three details worth knowing before you copy the block:
+
+- `[StringLength]` skips `null`, so `Password` needs no conditional attribute — on edit the modal hides the field, the property arrives `null`, and the validator passes. The create-only requirement is the `IValidatableObject.Validate` override, which yields a `ValidationResult` with a `null` message, consistent with the rest.
+- The lengths mirror `Database/script.sql` (`USERNAME`/`FIRST_NAME`/`LAST_NAME` `nvarchar(50)`, `PASSWORD` `nvarchar(255)`), so oversize input now fails as a validation error instead of a SQL truncation exception surfaced through `GetBaseException().Message`.
+- `Role`'s pattern mirrors the `CHK_UserRole` constraint — `user`, `manager`, `admin` — the same three values as `vm.RoleList` in § 9.3.
+- `Compare` is `System.ComponentModel.DataAnnotations.CompareAttribute` (.NET 4.5+), **not** the `System.Web.Mvc` one.
+
 ```csharp
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using System.Linq;
 using System.Web;
 
 namespace CoreUIDemo.Models
 {
-    public class UserModel
+    // The attributes below carry no ErrorMessage on purpose. They are the server-side safety net;
+    // every message a user reads is produced by the AngularJS form in the view. See
+    // docs/superpowers/specs/2026-09-24-dataannotations-angular-validation-design.md.
+    public class UserModel : IValidatableObject
     {
         public long ID { get; set; }
+
+        [Required]
+        [StringLength(50)]
         public string Username { get; set; }
+
+        // Null on edit - the modal hides the field - and StringLength skips null values.
+        // The create-only requirement is in Validate below.
+        [StringLength(255, MinimumLength = 6)]
         public string Password { get; set; }
+
+        [Required]
+        [StringLength(50)]
+        [RegularExpression("^[a-zA-Z ]+$")]
         public string FirstName { get; set; }
+
+        [Required]
+        [StringLength(50)]
+        [RegularExpression("^[a-zA-Z ]+$")]
         public string LastName { get; set; }
 
         public string FullName
@@ -370,14 +400,32 @@ namespace CoreUIDemo.Models
             }
         }
 
+        // Mirrors CHK_UserRole in Database/script.sql.
+        [Required]
+        [StringLength(50)]
+        [RegularExpression("^(user|manager|admin)$")]
         public string Role { get; set; }
+
         public bool IsActive { get; set; }
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (ID == 0 && string.IsNullOrWhiteSpace(Password))
+                yield return new ValidationResult(null, new[] { "Password" });
+        }
     }
 
     public class ChangePasswordModel
     {
+        [Required]
         public string CurrentPassword { get; set; }
+
+        [Required]
+        [StringLength(255, MinimumLength = 6)]
         public string NewPassword { get; set; }
+
+        [Required]
+        [Compare("NewPassword")]
         public string ConfirmPassword { get; set; }
     }
 }
@@ -631,7 +679,11 @@ Mirrors `OneMasaito/Services/UserService.cs`, restricted to the user-account met
 | `AdminChangePassword` | direct EF `SaveChanges()` (no sproc exists for an admin reset) | `Password must be at least 6 characters`, `Invalid Password` |
 | `AdminUpdateStatus` | re-check the **acting admin's** password; deactivate via `sp_DeleteUser`; re-activate via direct EF | `Wrong Password!`, `Invalid Password!!`, or the sproc's own text |
 
-Validation rules (the only thing added to OneMasaito, at the user's request): First Name and Last Name must match `^[a-zA-Z ]+$` (letters and spaces — the space matches OneMasaito's existing keypress filter on those inputs); passwords must be at least 6 characters. Username has no format rule beyond required + not duplicate, same as OneMasaito. The same checks run in the browser (§ 9) so the user gets immediate feedback; these server-side copies are the ones that actually hold.
+Validation rules (the only thing added to OneMasaito, at the user's request): First Name and Last Name must match `^[a-zA-Z ]+$` (letters and spaces — the space matches OneMasaito's existing keypress filter on those inputs); passwords must be at least 6 characters. Username has no format rule beyond required + not duplicate, same as OneMasaito.
+
+⚠️ **DEVIATION (2026-09-24)** — those format rules **no longer live in this file**. They are DataAnnotations on the models (§ 4.1), enforced by the model binder before the action body runs, and their messages come from the AngularJS forms (§ 8, § 9). What that removed from `UserService`: the `NamePattern` and `NameMessage` constants, the `Regex.IsMatch` blocks at the top of `SaveAccount` and `UpdateAccount`, `SaveAccount`'s password-length check, `ChangePassword`'s length check, and the `System.Text.RegularExpressions` using.
+
+`PasswordMinLength` and `PasswordMessage` survive for **`AdminChangePassword` only**, because that action takes a plain `string _password` that no attribute can reach (§ 6.2). Its message is unreachable in practice — the reset modal checks the same rule first — so users still only ever read AngularJS's wording. Everything else in this file is a *state* rule (duplicate username, wrong admin password, account not found) and is untouched: those need the database and keep their own messages. Contract: `docs/superpowers/specs/2026-09-24-dataannotations-angular-validation-design.md`.
 
 ```csharp
 using System;
@@ -639,7 +691,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Data.Entity;
-using System.Text.RegularExpressions;
 using CoreUIDemo.Models;
 using CoreUIDemo.Helpers;
 
@@ -647,9 +698,10 @@ namespace CoreUIDemo.Services
 {
     public class UserService
     {
-        private const string NamePattern = "^[a-zA-Z ]+$";
+        // Format rules live on the models as DataAnnotations and on the AngularJS forms; see
+        // docs/superpowers/specs/2026-09-24-dataannotations-angular-validation-design.md.
+        // These two remain because AdminChangePassword takes a plain string, which no attribute can reach.
         private const int PasswordMinLength = 6;
-        private const string NameMessage = "First Name and Last Name may contain letters and spaces only";
         private const string PasswordMessage = "Password must be at least 6 characters";
 
         public static UserModel ValidateUserLogin(string _username, string _password, out string returnString)
@@ -704,12 +756,6 @@ namespace CoreUIDemo.Services
 
             try
             {
-                if (_pass.NewPassword == null || _pass.NewPassword.Length < PasswordMinLength)
-                {
-                    message = PasswordMessage;
-                    return;
-                }
-
                 using (var db = new loginDemoEntities())
                 {
                     var currentUser = UniversalHelpers.CurrentUser;
@@ -765,18 +811,6 @@ namespace CoreUIDemo.Services
 
             try
             {
-                if (!Regex.IsMatch(_account.FirstName ?? "", NamePattern) || !Regex.IsMatch(_account.LastName ?? "", NamePattern))
-                {
-                    message = NameMessage;
-                    return false;
-                }
-
-                if (_account.Password == null || _account.Password.Length < PasswordMinLength)
-                {
-                    message = PasswordMessage;
-                    return false;
-                }
-
                 using (var db = new loginDemoEntities())
                 {
                     db.sp_InsertUserAccount(_account.Username, _account.Password, _account.FirstName, _account.LastName, true, _role);
@@ -797,12 +831,6 @@ namespace CoreUIDemo.Services
 
             try
             {
-                if (!Regex.IsMatch(_account.FirstName ?? "", NamePattern) || !Regex.IsMatch(_account.LastName ?? "", NamePattern))
-                {
-                    message = NameMessage;
-                    return false;
-                }
-
                 using (var db = new loginDemoEntities())
                 {
                     var currentPassword = db.USERS_ACCOUNTS
@@ -935,6 +963,7 @@ git commit -m "feat: services"
 Two controllers, mirroring `OneMasaito/Controllers/HomeController.cs` and `SettingsController.cs`. Rules inherited from OneMasaito:
 
 - A **GET view action** checks `UniversalHelpers.CurrentUser == null` and redirects to `Home/Login` itself. There is no `[Authorize]` and no framework redirect.
+- `Login()` (GET) is the mirror image of that rule: it redirects to `Home/Index` when `CurrentUser` is **not** null, so a signed-in user who opens the login URL gets the dashboard instead of the card. OneMasaito has no such check — see § 6.1.
 - A **JSON action** does **no** auth check. Anyone who can reach the URL can call it. (Listed in `ARCHITECTURE.md` §7.)
 - JSON actions take plain parameters or a model, and return anonymous objects: `{ errorMessage }` for the auth/password family, `{ message }` for saves.
 - No `[ValidateAntiForgeryToken]` anywhere.
@@ -950,24 +979,35 @@ using System.Web.Mvc;
 using CoreUIDemo.Models;
 using CoreUIDemo.Services;
 using CoreUIDemo.Helpers;
+using System.Web.ModelBinding;
+
 
 namespace CoreUIDemo.Controllers
 {
     public class HomeController : Controller
     {
+        // GET: HOME/Login
+        [HttpGet]
         public ActionResult Login()
         {
+            // If already logged in, redirect straight to index
+            if (UniversalHelpers.CurrentUser != null)
+            {
+                return RedirectToAction("Index");
+            }
+
             return View();
+
         }
 
+        // POST: Home/Login
         [HttpPost]
         public JsonResult Login(string username, string password)
         {
-            string serverResponse = "";
 
-            UserModel user = UserService.ValidateUserLogin(username, password, out serverResponse);
+            UserModel user = UserService.ValidateUserLogin(username, password, out string serverResponse);
 
-            if (user != null)
+            if (user != null) 
             {
                 AccountService.LoginToSession(user);
             }
@@ -975,23 +1015,34 @@ namespace CoreUIDemo.Controllers
             return Json(new { errorMessage = serverResponse });
         }
 
+
+        // POST: HOME/Logout
         [HttpPost]
         public JsonResult Logout()
         {
-            string serverResponse = "";
+           
 
-            AccountService.LogoutFromSession(out serverResponse);
+            AccountService.LogoutFromSession(out string serverResponse);
 
             return Json(serverResponse);
         }
 
+
+
+        // POST: Home/ChangePassword
         [HttpPost]
         public JsonResult ChangePassword(ChangePasswordModel password)
         {
-            var serverResponse = "";
+            // DataAnnotations on ChangePasswordModel are the safety net only; the AngularJS form
+            // says what is wrong, so anything that reaches here bypassed the client.
+            if (password == null || !ModelState.IsValid)
+            {
+                return Json(new { errorMessage = "Invalid payload" });
+            }
 
-            if (password != null)
-                UserService.ChangePassword(password, out serverResponse);
+            string serverResponse = "";
+
+            UserService.ChangePassword(password, out serverResponse);
 
             return Json(new { errorMessage = serverResponse });
         }
@@ -1010,9 +1061,14 @@ namespace CoreUIDemo.Controllers
             var user = UniversalHelpers.CurrentUser;
 
             if (user == null)
+            {
                 return RedirectToRoute(new { controller = "Home", action = "Login", id = UrlParameter.Optional });
+            }
             else
+            {
                 return View();
+            }
+                
         }
     }
 }
@@ -1023,6 +1079,8 @@ How model binding works for the JSON actions (this is why the Angular payload sh
 ⚠️ **DEVIATION**
 - `GetCurrentUser` returns only `{ obj }`. OneMasaito also stuffs two unrelated dropdown lists from `IFCAService` into this response.
 - `JsonRequestBehavior.AllowGet` is added so you can hit `/Home/GetCurrentUser` in the address bar while verifying § 8. OneMasaito's version has no `AllowGet` and is only ever POSTed to by `App.js`; the Angular code here also POSTs. Remove `AllowGet` if you prefer the stricter mirror — nothing else depends on it.
+- `Login()` carries an explicit `[HttpGet]` (the GET/POST pair was already unambiguous without it) and returns `RedirectToAction("Index")` when `UniversalHelpers.CurrentUser` is already set. OneMasaito's `Login()` has neither, and always renders the card. Consequence: to see the login form again you have to log out first — the cookie, not the URL, decides (2026-09-22).
+- `Login` and `Logout` declare their `out string serverResponse` inline (C# 7 out-variables); OneMasaito writes `string serverResponse = "";` on its own line first. Identical behaviour. `ChangePassword` keeps the separate declaration, because it returns that empty string unchanged when `password` is null.
 
 ### 6.2 `Controllers/SettingsController.cs`
 
@@ -1040,28 +1098,39 @@ namespace CoreUIDemo.Controllers
 {
     public class SettingsController : Controller
     {
-        // GET: Settings
+        // GET: Settings/UserAccounts
         public ActionResult UserAccounts()
         {
             var user = UniversalHelpers.CurrentUser;
 
             if (user == null)
-                return RedirectToRoute(new { controller = "Home", action = "Login", id = UrlParameter.Optional });
-            else
-                return View();
+            {
+                return RedirectToAction("Login", "Home");
+            }
+            //    //return RedirectToRoute(new { controller = "Home", action = "Login", id = UrlParameter.Optional });
+            //else
+            return View();
         }
 
+        // POST: Settings/GetAccounts
         [HttpPost]
         public JsonResult GetAccounts()
         {
             var accountList = UserService.GetAllAccount();
 
-            return Json(new { accountList = accountList });
+            return Json(new {  accountList });
         }
 
+
+        // POST: Settings/SaveNewAccount
         [HttpPost]
         public JsonResult SaveNewAccount(UserModel account, string role)
         {
+            if (account == null || !ModelState.IsValid)
+            {
+                return Json(new { message = "Invalid payload" });
+            }
+
             bool save;
 
             string message = "";
@@ -1081,37 +1150,44 @@ namespace CoreUIDemo.Controllers
                 save = UserService.UpdateAccount(account, role, out message);
 
             if (save)
+            {
                 return Json(new { message = "Saved" });
-            else
-                return Json(new { message = string.IsNullOrEmpty(message) ? "Error on Saving" : message });
+            }
+            return Json(new { message = string.IsNullOrEmpty(message) ? "Error on Saving" : message });
         }
 
+
+        // POST: Settings/AdminChangePassword
         [HttpPost]
         public JsonResult AdminChangePassword(long account, string password)
         {
             var serverResponse = "";
 
             if (password != null)
+            {
                 UserService.AdminChangePassword(account, password, out serverResponse);
-
+            }
             return Json(new { errorMessage = serverResponse });
         }
 
+
+        // POST:  Settings/UpdateStatus
         [HttpPost]
         public JsonResult UpdateStatus(long account, string password)
         {
             var serverResponse = "";
 
             if (password != null)
+            {
                 UserService.AdminUpdateStatus(account, password, out serverResponse);
-
+            }
             return Json(new { errorMessage = serverResponse });
         }
     }
 }
 ```
 
-`SaveNewAccount` keeps OneMasaito's branching: `ID == 0` means create (duplicate-username check in C#, then the sproc, which checks again), otherwise update. The `role` parameter arrives beside the model — `{ account: {...}, role: "admin" }` — exactly where OneMasaito's `long department` used to be.
+`SaveNewAccount` keeps OneMasaito's branching: `ID == 0` means create (duplicate-username check in C#, then the sproc, which checks again), otherwise update. A null `account` — an empty or malformed body — short-circuits to `{ message: "Invalid payload" }` before any service call; without that guard the model binder's `null` would reach `account.ID` and throw a `NullReferenceException` into the JSON response (added 2026-09-22; OneMasaito has no such guard). The `role` parameter arrives beside the model — `{ account: {...}, role: "admin" }` — exactly where OneMasaito's `long department` used to be.
 
 `UpdateStatus`'s `password` is the acting admin's password, not the target user's — see § 5.2.
 
@@ -1120,6 +1196,8 @@ namespace CoreUIDemo.Controllers
 - `GetAccounts` returns only `accountList` (OneMasaito adds `departmentList` and `reportList`).
 - `long department` → `string role`.
 - When a save fails, the sproc/validation message is returned instead of the fixed "Error on Saving" (which is still the fallback when there is no message).
+- `UserAccounts()` redirects with `RedirectToAction("Login", "Home")`; `HomeController.Index()` still uses `RedirectToRoute(new { controller = "Home", action = "Login", … })`. Both emit the same 302 to `/Home/Login`. The old `RedirectToRoute` line is left commented out above it (2026-09-22).
+- `GetAccounts` returns `Json(new { accountList })` — the C# 7 inferred member name, byte-identical on the wire to `new { accountList = accountList }`.
 
 ✅ **VERIFY** — `Build → Rebuild Solution` reports **0 errors**. (Views are still the old ones or missing; that is a runtime concern handled in § 8–§ 9. Do not run the app yet.)
 
@@ -1231,11 +1309,32 @@ Replace the MVC template's `Site.css` with the loader spinner that OneMasaito's 
 .growl-container > .growl-item > button.close:hover {
     opacity: .75;
 }
+
+/* AngularJS validation state, per the AngularJS 1.8 Forms guide: ngModel puts ng-invalid /
+   ng-touched on each control and the form directive puts ng-submitted on the <form>, so the
+   invalid border needs no ng-class on any input. Same reveal rule as the messages themselves
+   ($submitted || $touched), and --cui-form-invalid-border-color follows CoreUI's dark mode.
+   Contract: docs/superpowers/specs/2026-09-24-dataannotations-angular-validation-design.md */
+form.ng-submitted .form-control.ng-invalid,
+form.ng-submitted .form-select.ng-invalid,
+.form-control.ng-invalid.ng-touched,
+.form-select.ng-invalid.ng-touched {
+    border-color: var(--cui-form-invalid-border-color);
+}
+
+/* The validation message row keeps its space while hidden. Without this, revealing a message
+   when a field is blurred pushes the Save button out from under the pointer between mousedown
+   and mouseup, so the browser never fires a click and the first Save press after typing is
+   silently swallowed. Site.css is bundled last, so this wins over AngularJS's own .ng-hide. */
+.field-feedback.ng-hide {
+    display: block !important;
+    visibility: hidden;
+}
 ```
 
 ### 7.4 `App_Start/BundleConfig.cs`
 
-Same three bundle names as OneMasaito. Order inside `~/bundles/scripts` matters: jQuery first (the `#firstName` / `#lastName` keypress filters in § 9.3 use it; nothing else does), then CoreUI (so the `coreui` global exists before any Angular controller runs), then Angular, then angular-growl (which registers a module on `angular`).
+Same three bundle names as OneMasaito. Order inside `~/bundles/scripts` matters: jQuery first (the `#firstName` / `#lastName` keypress filters in § 9.3 were its only consumer and are commented out since 2026-09-22, so nothing in the app calls jQuery today — the order matters again the moment you uncomment them), then CoreUI (so the `coreui` global exists before any Angular controller runs), then Angular, then angular-growl (which registers a module on `angular`).
 
 jQuery is referenced as `~/Scripts/jquery-{version}.js` rather than by an exact file name: the repo currently ships `jquery-3.7.0.js` even though `packages.config` says 3.7.1, and a bundle entry naming a file that is not on disk is skipped **silently** (no build error, no 404 in the console — just `$ is not defined` later). The `{version}` wildcard matches whichever version is installed and picks the `.min` file automatically when `EnableOptimizations` is true.
 
@@ -1412,7 +1511,8 @@ Structure (top to bottom): head → `mainController` wrapper with loader → gro
                         <img class="sidebar-brand-narrow" style="height:32px;" src="~/Src/Image/masaito-mark-dark-gradient.svg" alt="Masaito" />
                     </div>
                     <button class="btn-close d-lg-none" type="button" data-coreui-theme="dark" aria-label="Close"
-                            onclick="coreui.Sidebar.getOrCreateInstance(document.querySelector('#sidebar')).toggle()"></button>
+                            onclick="coreui.Sidebar.getOrCreateInstance(document.querySelector('#sidebar')).toggle()">
+                    </button>
                 </div>
                 <ul class="sidebar-nav" data-coreui="navigation" data-simplebar>
                     <!-- Nav Item - Dashboard -->
@@ -1442,9 +1542,6 @@ Structure (top to bottom): head → `mainController` wrapper with loader → gro
                         </ul>
                     </li>
                 </ul>
-                <div class="sidebar-footer border-top d-none d-md-flex">
-                    <button class="sidebar-toggler" type="button" data-coreui-toggle="unfoldable"></button>
-                </div>
             </div>
             <!-- End of Sidebar -->
 
@@ -1471,7 +1568,11 @@ Structure (top to bottom): head → `mainController` wrapper with loader → gro
                             <li class="nav-item dropdown">
                                 <button class="btn btn-link nav-link py-2 px-2 d-flex align-items-center" type="button"
                                         aria-expanded="false" data-coreui-toggle="dropdown">
-                                    <span class="theme-icon-active">Theme</span>
+                                    <span class="theme-icon-active">
+                                        <svg class="icon icon-lg theme-icon-active" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                                            <path fill="var(--ci-primary-color, currentcolor)" d="M256 16C123.452 16 16 123.452 16 256s107.452 240 240 240 240-107.452 240-240S388.548 16 256 16m-22 446.849a208.35 208.35 0 0 1-169.667-125.9c-.364-.859-.706-1.724-1.057-2.587L234 429.939Zm0-69.582L50.889 290.76A210 210 0 0 1 48 256q0-9.912.922-19.67L234 339.939Zm0-90L54.819 202.96a206 206 0 0 1 9.514-27.913Q67.1 168.5 70.3 162.191L234 253.934Zm0-86.015L86.914 134.819a209.4 209.4 0 0 1 22.008-25.9q3.72-3.72 7.6-7.228L234 166.027Zm0-87.708-89.648-49.093A206.95 206.95 0 0 1 234 49.151ZM464 256a207.775 207.775 0 0 1-198 207.761V48.239A207.79 207.79 0 0 1 464 256" class="ci-primary" />
+                                        </svg>
+                                    </span>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end" style="--cui-dropdown-min-width: 8rem">
                                     <li><button class="dropdown-item" type="button" data-coreui-theme-value="light">Light</button></li>
@@ -1520,7 +1621,7 @@ Structure (top to bottom): head → `mainController` wrapper with loader → gro
 
                 <!-- Footer -->
                 <footer class="footer px-4">
-                    <div><span class="text-primary"><b>&copy; CoreUIDemo 2026. Learning replica of the OneMasaito user module.</b></span></div>
+                    <div><span class="text-primary"><b>&copy;2026 Management Information System.</b></span></div>
                 </footer>
                 <!-- End of Footer -->
 
@@ -1552,19 +1653,29 @@ Structure (top to bottom): head → `mainController` wrapper with loader → gro
                             <h5 class="modal-title">Change Password</h5>
                             <button class="btn-close" type="button" data-coreui-dismiss="modal" aria-label="Close"></button>
                         </div>
-                        <form ng-submit="ChangePassword(main.ChangePassword)" autocomplete="off" novalidate>
+                        <form name="PasswordForm" ng-submit="ChangePassword(main.ChangePassword)" autocomplete="off" novalidate>
                         <div class="modal-body">
                             <div class="mb-3">
                                 <label class="form-label">Current Password</label>
-                                <input type="password" class="form-control" ng-model="main.ChangePassword.CurrentPassword" />
+                                <input type="password" class="form-control" name="CurrentPassword" ng-model="main.ChangePassword.CurrentPassword" required />
+                                <div class="field-feedback" ng-show="PasswordForm.$submitted || PasswordForm.CurrentPassword.$touched">
+                                    <div class="invalid-feedback d-block" ng-show="PasswordForm.CurrentPassword.$error.required">Please input Current Password</div>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">New Password</label>
-                                <input type="password" class="form-control" ng-model="main.ChangePassword.NewPassword" />
+                                <input type="password" class="form-control" name="NewPassword" ng-model="main.ChangePassword.NewPassword" required ng-minlength="6" ng-maxlength="255" />
+                                <div class="field-feedback" ng-show="PasswordForm.$submitted || PasswordForm.NewPassword.$touched">
+                                    <div class="invalid-feedback d-block" ng-show="PasswordForm.NewPassword.$error.required || PasswordForm.NewPassword.$error.minlength">Password must be at least 6 characters</div>
+                                </div>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Confirm Password</label>
-                                <input type="password" class="form-control" ng-model="main.ChangePassword.ConfirmPassword" />
+                                <input type="password" class="form-control" name="ConfirmPassword" ng-model="main.ChangePassword.ConfirmPassword" required />
+                                <div class="field-feedback" ng-show="PasswordForm.$submitted || PasswordForm.ConfirmPassword.$touched">
+                                    <div class="invalid-feedback d-block" ng-show="PasswordForm.ConfirmPassword.$error.required">Password Not Match!</div>
+                                    <div class="invalid-feedback d-block" ng-show="main.ChangePassword.ConfirmPassword && main.ChangePassword.ConfirmPassword !== main.ChangePassword.NewPassword">Password Not Match!</div>
+                                </div>
                             </div>
                         </div>
                         <div class="modal-footer">
@@ -1584,16 +1695,22 @@ Structure (top to bottom): head → `mainController` wrapper with loader → gro
 What is OneMasaito's and what is CoreUI's:
 
 - **OneMasaito**: scripts rendered in `<head>`; `ng-controller="mainController as main" ng-init="Init()"` on the outermost div; the `.loader` shown until `main.ItemLoad`; `<div growl class="fading">`; the header search box bound to `main.SearchBox` (the accounts grid filters on it); the user dropdown with *Change Password* (opens `#PasswordModal` **and** calls `OpenPasswordModal()` to clear the fields — OneMasaito wires both) and *Logout* (opens `#logoutModal`, whose confirm button calls `Logout()`); both modals' contents.
-- **CoreUI**: `div.sidebar` / `ul.sidebar-nav[data-coreui="navigation"]` / `sidebar-footer` / `div.wrapper` / `header.header` / `div.body` / `footer.footer`; `data-coreui-*` attributes; `btn-close`; `mb-3` instead of `form-group`; the theme dropdown.
+- **CoreUI**: `div.sidebar` / `ul.sidebar-nav[data-coreui="navigation"]` / `div.wrapper` / `header.header` / `div.body` / `footer.footer`; `data-coreui-*` attributes; `btn-close`; `mb-3` instead of `form-group`; the theme dropdown.
 - **Change Password modal**: the body and footer sit inside `<form ng-submit="ChangePassword(main.ChangePassword)" autocomplete="off" novalidate>` and the *Change Password* button is `type="submit"`, so Enter in any of the three fields submits; *Cancel* is `type="button"` so it only dismisses. OneMasaito uses `ng-click` on the button and has no form element; the fields, `ng-model` names and controller call are the same.
 - **The theme dropdown is not optional.** `color-modes.js` runs `showActiveTheme()` on `DOMContentLoaded` and dereferences the button matching `[data-coreui-theme-value="…"]`; with no such buttons it throws a `TypeError` in the console on every page. If you do not want a theme switcher, remove **both** the dropdown and the `<script src="~/Scripts/js/color-modes.js">` tag and hard-code `<html ng-app="app" data-coreui-theme="light">`.
 - Sidebar gating: OneMasaito shows its *Settings* group when `Department === 1 || Settings === 2 || Settings === 3`. With neither column here, the equivalent is `Role === 'admin'`. This is a UI convenience only — `/Settings/UserAccounts` itself checks only that *someone* is logged in (§ 6), exactly like OneMasaito.
 
-⚠️ **DEVIATION** — Google Fonts `<link>` (Nunito) removed; CoreUI uses the system font stack. The `#sidebarToggle` button and the `$("#sidebarToggle").click(...)` jQuery block in `App.js` are gone — CoreUI's `sidebar-toggler` / `header-toggler` handle it. The "Patch Notes" nav item becomes "Dashboard". The mobile search dropdown (`d-sm-none`) is dropped; the one search input is enough.
+⚠️ **DEVIATION** — Google Fonts `<link>` (Nunito) removed; CoreUI uses the system font stack. The `#sidebarToggle` button and the `$("#sidebarToggle").click(...)` jQuery block in `App.js` are gone — CoreUI's `header-toggler` handles it. The "Patch Notes" nav item becomes "Dashboard". The mobile search dropdown (`d-sm-none`) is dropped; the one search input is enough.
+
+⚠️ **DEVIATION (2026-09-22)** — three further departures from the dist shell, all visible in the block above:
+
+- **No sidebar footer.** The dist's `div.sidebar-footer` holding `button.sidebar-toggler[data-coreui-toggle="unfoldable"]` is deleted. The sidebar is always full width on desktop and the header's `header-toggler` (hide / show) is the only sidebar control left. Narrow mode is still reachable — put `sidebar-narrow` on the `div.sidebar` permanently (`COREUI_GUIDE.md` § 5, `docs/coreui/08-customizing.md`).
+- **The theme toggle is an icon, not the word *Theme*.** `<span class="theme-icon-active">` now wraps an inline `<svg class="icon icon-lg theme-icon-active">` (CoreUI's contrast glyph). The icon is **static**: `color-modes.js` copies an icon into that span only when the matching dropdown *item* contains an `<svg>`, and the three items here are text labels — so the contrast glyph shows whatever the active theme is. `COREUI_GUIDE.md` § 9 has the rule and what to add if you want the icon to track the theme.
+- **Footer line** reads `© 2026 Management Information System.`
 
 ### 8.3 `Views/Home/Login.cshtml`
 
-`Layout = null` and its own `ng-app="login"` — a completely separate Angular application from the layout's `app`, exactly as OneMasaito. The card is CoreUI's `authentication/login.html` reduced to what OneMasaito's login has: username, password, one button, a version line.
+`Layout = null` and its own `ng-app="login"` — a completely separate Angular application from the layout's `app`, exactly as OneMasaito. The card is CoreUI's `authentication/login.html` reduced to what OneMasaito's login has: username, password, one button. (The `<hr />` + `version 1.0.0` line under the form was removed on 2026-09-22, and the placeholders shortened to `Enter Username` / `Enter Password`.)
 
 ```cshtml
 @{
@@ -1628,23 +1745,28 @@ What is OneMasaito's and what is CoreUI's:
             <div class="card p-4">
                 <div class="card-body d-flex flex-column gap-4">
                     <h2 class="h5 text-center">Login to your account</h2>
-                    <form class="row gap-3" autocomplete="off" novalidate ng-submit="TryLogin()">
+                    <form class="row gap-3" name="LoginForm" autocomplete="off" novalidate ng-submit="TryLogin()">
                         <div>
                             <label class="form-label" for="username">Username</label>
-                            <input class="form-control" id="username" type="text" placeholder="Enter Username. . . "
-                                   ng-model="vm.Username" />
+                            <input class="form-control" id="username" name="Username" type="text" placeholder="Enter Username"
+                                   ng-model="vm.Username" required ng-maxlength="50" />
+                            <div class="field-feedback" ng-show="LoginForm.$submitted || LoginForm.Username.$touched">
+                                <div class="invalid-feedback d-block" ng-show="LoginForm.Username.$error.required">Please input Username</div>
+                                <div class="invalid-feedback d-block" ng-show="LoginForm.Username.$error.maxlength">Username is too long (maximum 50)</div>
+                            </div>
                         </div>
                         <div>
                             <label class="form-label" for="password">Password</label>
-                            <input class="form-control" id="password" type="password" placeholder="Enter Password. . . "
-                                   ng-model="vm.Password" />
+                            <input class="form-control" id="password" name="Password" type="password" placeholder="Enter Password"
+                                   ng-model="vm.Password" required />
+                            <div class="field-feedback" ng-show="LoginForm.$submitted || LoginForm.Password.$touched">
+                                <div class="invalid-feedback d-block" ng-show="LoginForm.Password.$error.required">Please input Password</div>
+                            </div>
                         </div>
                         <div>
                             <button class="btn btn-primary w-100" type="submit">Login</button>
                         </div>
                     </form>
-                    <hr />
-                    <p class="text-primary text-center mb-0"><b>version 1.0.0</b></p>
                 </div>
             </div>
         </div>
@@ -1653,7 +1775,7 @@ What is OneMasaito's and what is CoreUI's:
 </html>
 ```
 
-The `<form>` has no `action`; it carries `ng-submit="TryLogin()"` and the Login button is `type="submit"`. AngularJS's `ngSubmit` calls `preventDefault()` on a form with no `action`, so clicking the button or pressing Enter in either field runs `TryLogin()` and nothing reloads. (OneMasaito uses `type="button"` + `ng-click` and binds Enter with a jQuery `keypress` handler in `Login.js`; the form-submit route is one attribute and covers both.)
+The `<form>` is named `LoginForm`, has no `action`, carries `ng-submit="TryLogin()"`, and its Login button is `type="submit"`. ⚠️ **DEVIATION (2026-09-24)** — both inputs are `required` and render their message under the field, and `TryLogin()` opens with an `$invalid` guard; until then this page had no client-side validation at all and an empty post came back as *Invalid Username or Password!!* from the server. AngularJS's `ngSubmit` calls `preventDefault()` on a form with no `action`, so clicking the button or pressing Enter in either field runs `TryLogin()` and nothing reloads. (OneMasaito uses `type="button"` + `ng-click` and binds Enter with a jQuery `keypress` handler in `Login.js`; the form-submit route is one attribute and covers both.)
 
 `data-coreui-theme="light"` on `<html>` pins the login page to the light theme because this page does not load `color-modes.js` (it has no theme dropdown for that script to bind to — see § 8.2). `COREUI_GUIDE.md` §9 shows how to make it follow the saved theme if you want that.
 
@@ -1751,6 +1873,16 @@ var app = angular.module('app', ["angular-growl", "growlConfig", "login", "usera
             coreui.Modal.getOrCreateInstance(document.getElementById(id)).hide();
         };
 
+        // Re-arms the modal's form: $setPristine also clears $submitted, $setUntouched clears the
+        // per-field touched flags, so a reopened modal shows no errors from the previous attempt.
+        var ResetForm = function (form) {
+            if (form) {
+                form.$setPristine();
+
+                form.$setUntouched();
+            }
+        };
+
         $scope.Init = function () {
             main.ItemLoad = false;
             $http({
@@ -1765,40 +1897,35 @@ var app = angular.module('app', ["angular-growl", "growlConfig", "login", "usera
         };
 
         $scope.ChangePassword = function (value) {
-            if (!value.NewPassword || value.NewPassword.length < 6) {
-                growl.error("Password must be at least 6 characters");
+
+            // PasswordForm renders each message under its field. The match is the one cross-field
+            // rule and is not part of the form's own validity, so it is re-checked here.
+            if ($scope.PasswordForm.$invalid || value.ConfirmPassword !== value.NewPassword) {
+                return;
             }
-            else if (value.ConfirmPassword != value.NewPassword) {
-                growl.error("Password Not Match!");
 
-                value.CurrentPassword = "";
+            $http({
+                method: "POST",
+                url: "/Home/ChangePassword",
+                data: { password: value }
+            }).then(function (data) {
+                if (data.data.errorMessage == "") {
+                    growl.success("Password Successfully Changed");
 
-                value.NewPassword = "";
+                    HideModal("PasswordModal");
+                }
+                else {
+                    growl.error(data.data.errorMessage);
 
-                value.ConfirmPassword = "";
-            }
-            else {
-                $http({
-                    method: "POST",
-                    url: "/Home/ChangePassword",
-                    data: { password: value }
-                }).then(function (data) {
-                    if (data.data.errorMessage == "") {
-                        growl.success("Password Successfully Changed");
+                    value.CurrentPassword = "";
 
-                        HideModal("PasswordModal");
-                    }
-                    else {
-                        growl.error(data.data.errorMessage);
+                    value.NewPassword = "";
 
-                        value.CurrentPassword = "";
+                    value.ConfirmPassword = "";
 
-                        value.NewPassword = "";
-
-                        value.ConfirmPassword = "";
-                    }
-                });
-            }
+                    ResetForm($scope.PasswordForm);
+                }
+            });
         };
 
         $scope.Logout = function () {
@@ -1824,6 +1951,8 @@ var app = angular.module('app', ["angular-growl", "growlConfig", "login", "usera
             main.ChangePassword.NewPassword = "";
 
             main.ChangePassword.ConfirmPassword = "";
+
+            ResetForm($scope.PasswordForm);
         };
 
     }]);
@@ -1843,6 +1972,12 @@ angular.module("login", ["angular-growl", "growlConfig"])
         var vm = this;
 
         $scope.TryLogin = function () {
+
+            // LoginForm carries the two required rules and renders their messages under the fields.
+            if ($scope.LoginForm.$invalid) {
+                return;
+            }
+
             $http({
                 method: "POST",
                 url: "/Home/Login",
@@ -1862,6 +1997,8 @@ angular.module("login", ["angular-growl", "growlConfig"])
     }]);
 ```
 
+Plus, since 2026-09-24, an `$invalid` guard at the top of `TryLogin()` — `LoginForm` carries the two `required` rules and renders their messages (§ 8.3).
+
 A copy of OneMasaito's file plus the `growlConfig` dependency and the ttl-less growl call, minus OneMasaito's `$(document).on('keypress', …)` block — Enter is handled by the view's `ng-submit` (§ 8.3), so the controller only exposes `TryLogin()`. The response's `errorMessage` decides between a growl and a redirect. There is no client-side validation here because OneMasaito has none: an empty username/password simply comes back as `Invalid Username or Password!!`.
 
 ### 9.3 `App/Controller/UserAccounts.js`
@@ -1879,11 +2016,27 @@ angular.module("useraccount", ["app"])
         vm.StatusFilter = "active";
 
         $scope.StatusMatch = function (acc) {
-            if (vm.StatusFilter === "all") return true;
-            return vm.StatusFilter === "active" ? acc.IsActive : !acc.IsActive;
+            if (vm.StatusFilter === "all") {
+                return true;
+            }
+
+            if (vm.StatusFilter === "active") {
+                return acc.IsActive;
+            } else {
+                return !acc.IsActive;
+            }
         };
 
-        var namePattern = /^[a-zA-Z ]+$/;
+
+        // Re-arms a modal's form so a reopened modal never shows the previous attempt's errors:
+        // $setPristine also clears $submitted, $setUntouched clears the per-field touched flags.
+        var ResetForm = function (form) {
+            if (form) {
+                form.$setPristine();
+
+                form.$setUntouched();
+            }
+        };
 
         $scope.Init = function () {
             $http({
@@ -1899,7 +2052,12 @@ angular.module("useraccount", ["app"])
         $scope.NewAccount = function () {
             vm.ModalHeader = "New";
 
-            vm.Modal = { Role: "user" };
+            // Every bound field is initialised explicitly rather than left absent. A control whose
+            // validator failed parks $modelValue at undefined, so a model without the property is
+            // not a change, ngModel's watch never fires, and the rejected text stays in the input.
+            vm.Modal = { Username: "", Password: null, FirstName: "", LastName: "", Role: "user" };
+
+            ResetForm($scope.AccountForm);
 
             ShowModal("AccountModal");
         };
@@ -1909,56 +2067,42 @@ angular.module("useraccount", ["app"])
 
             vm.Modal = angular.copy(value);
 
+            // The grid row carries no password; null (not "") both clears any stale view value and
+            // is skipped by [StringLength] server-side, which an empty string would fail.
+            vm.Modal.Password = null;
+
+            ResetForm($scope.AccountForm);
+
             ShowModal("AccountModal");
         };
 
         $scope.Save = function () {
 
-            if (!vm.Modal.Username) {
-                growl.error("Please input Username");
+            // AccountForm carries every presence/format rule (see the modal markup); the messages
+            // are rendered under each field, so there is nothing to growl here.
+            if ($scope.AccountForm.$invalid) {
+                return;
             }
-            else if (vm.ModalHeader === "New" && !vm.Modal.Password) {
-                growl.error("Please input Password");
-            }
-            else if (vm.ModalHeader === "New" && vm.Modal.Password.length < 6) {
-                growl.error("Password must be at least 6 characters");
-            }
-            else if (!vm.Modal.FirstName) {
-                growl.error("Please input First Name");
-            }
-            else if (!namePattern.test(vm.Modal.FirstName)) {
-                growl.error("First Name must contain letters only");
-            }
-            else if (!vm.Modal.LastName) {
-                growl.error("Please input Last Name");
-            }
-            else if (!namePattern.test(vm.Modal.LastName)) {
-                growl.error("Last Name must contain letters only");
-            }
-            else if (!vm.Modal.Role) {
-                growl.error("Please select Role");
-            }
-            else {
-                $http({
-                    method: "POST",
-                    url: "/Settings/SaveNewAccount",
-                    data: {
-                        account: vm.Modal,
-                        role: vm.Modal.Role
-                    }
-                }).then(function (data) {
-                    PopUpMessage(data.data);
 
-                    $scope.Init();
+            $http({
+                method: "POST",
+                url: "/Settings/SaveNewAccount",
+                data: {
+                    account: vm.Modal,
+                    role: vm.Modal.Role
+                }
+            }).then(function (response) {
+                PopUpMessage(response.data);
 
-                    if (data.data.message == "Saved") {
-                        HideModal("AccountModal");
-                    }
-                });
-            }
+                $scope.Init();
+
+                if (response.data.message == "Saved") {
+                    HideModal("AccountModal");
+                }
+            });
         };
 
-        $("#firstName").keypress(function (event) {
+        /*$("#firstName").keypress(function (event) {
             var inputValue = event.which;
 
             if (!(inputValue >= 65 && inputValue <= 90) && !(inputValue >= 97 && inputValue <= 122) && inputValue != 32) {
@@ -1973,96 +2117,97 @@ angular.module("useraccount", ["app"])
             if (!(inputValue >= 65 && inputValue <= 90) && !(inputValue >= 97 && inputValue <= 122) && inputValue != 32) {
                 event.preventDefault();
             }
-        });
+        });*/
 
         $scope.UpdatePassword = function (value) {
 
             vm.Change = angular.copy(value);
+
+            vm.Change.NewPassword = "";
+
+            vm.Change.ConfirmPassword = "";
+
+            ResetForm($scope.ChangePasswordForm);
 
             ShowModal("ChangePasswordModal");
         };
 
         $scope.ChangePassword = function () {
 
-            if (!vm.Change.NewPassword) {
-                growl.error("Please input New Password");
+            // The match is the one cross-field rule, shown inline by the modal and re-checked here
+            // because it is not part of the form's own validity.
+            if ($scope.ChangePasswordForm.$invalid || vm.Change.NewPassword !== vm.Change.ConfirmPassword) {
+                return;
             }
-            else if (!vm.Change.ConfirmPassword) {
-                growl.error("Please input Confirm Password");
-            }
-            else if (vm.Change.NewPassword.length < 6) {
-                growl.error("Password must be at least 6 characters");
-            }
-            else {
-                if (vm.Change.NewPassword != vm.Change.ConfirmPassword) {
-                    growl.error("Password Not Match!");
+
+            $http({
+                method: "POST",
+                url: "/Settings/AdminChangePassword",
+                data: {
+                    account: vm.Change.ID,
+                    password: vm.Change.NewPassword
+                }
+
+            }).then(function (response) {
+                if (response.data.errorMessage == "") {
+                    growl.success("Password Successfully Changed");
+
+                    $scope.Init();
+
+                    HideModal("ChangePasswordModal");
                 }
                 else {
-                    $http({
-                        method: "POST",
-                        url: "/Settings/AdminChangePassword",
-                        data: {
-                            account: vm.Change.ID,
-                            password: vm.Change.NewPassword
-                        }
+                    growl.error(response.data.errorMessage)
 
-                    }).then(function (data) {
-                        if (data.data.errorMessage == "") {
-                            growl.success("Password Successfully Changed");
+                    vm.Change.NewPassword = "";
 
-                            $scope.Init();
+                    vm.Change.ConfirmPassword = "";
 
-                            HideModal("ChangePasswordModal");
-                        }
-                        else {
-                            growl.error(data.data.errorMessage)
-
-                            vm.Change.NewPassword = "";
-
-                            vm.Change.ConfirmPassword = "";
-                        }
-                    });
+                    ResetForm($scope.ChangePasswordForm);
                 }
-            }
+            });
         };
 
         $scope.UpdateStatus = function (value) {
 
             vm.Status = angular.copy(value);
 
+            vm.Status.ConfirmPassword = "";
+
+            ResetForm($scope.StatusForm);
+
             ShowModal("UpdateStatusModal");
         };
 
         $scope.SaveStatus = function () {
-            if (!vm.Status.ConfirmPassword) {
-                growl.error("Please input Password to proceed");
-            }
-            else {
-                $http({
-                    method: "POST",
-                    url: "/Settings/UpdateStatus",
-                    data: {
-                        account: vm.Status.ID,
-                        password: vm.Status.ConfirmPassword
-                    }
-                }).then(function (data) {
-                    if (data.data.errorMessage == "") {
-                        growl.success("Account Status Successfully Changed");
 
-                        $scope.Init();
-
-                        HideModal("UpdateStatusModal");
-                    }
-                    else {
-                        growl.error(data.data.errorMessage)
-
-                        vm.Status.ConfirmPassword = "";
-
-                    }
-
-                });
+            if ($scope.StatusForm.$invalid) {
+                return;
             }
 
+            $http({
+                method: "POST",
+                url: "/Settings/UpdateStatus",
+                data: {
+                    account: vm.Status.ID,
+                    password: vm.Status.ConfirmPassword
+                }
+            }).then(function (response) {
+                if (response.data.errorMessage == "") {
+                    growl.success("Account Status Successfully Changed");
+
+                    $scope.Init();
+
+                    HideModal("UpdateStatusModal");
+                }
+                else {
+                    growl.error(response.data.errorMessage)
+
+                    vm.Status.ConfirmPassword = "";
+
+                    ResetForm($scope.StatusForm);
+                }
+            });
         }
     });
 ```
@@ -2072,10 +2217,14 @@ How each piece maps to OneMasaito:
 - `Init` → `/Settings/GetAccounts`; only `accountList` comes back now.
 - `NewAccount` / `EditAccount` / `Save` → the Account modal. `vm.Modal.Role` is posted twice — inside `account` (bound to `UserModel.Role`) and as the separate `role` parameter — because the controller signature keeps OneMasaito's `(UserModel account, <second param>)` shape.
 - `vm.StatusFilter` (`"active"` default, `"inactive"`, `"all"`) and `$scope.StatusMatch(acc)` drive the status filter in the grid header — a second `filter:` on the `ng-repeat`, client-side like the search box. Not in OneMasaito.
-- Required checks are written `!vm.Modal.Username` rather than OneMasaito's `== "" || == null` — same result for `""`, `null` and `undefined`, shorter to read. The same idiom is used in `App.js`.
-- `Save`'s chain: OneMasaito checks Username → Password → First Name → Last Name → Department. Here the Password checks only apply when creating (the Edit modal hides the password field, as OneMasaito's does), a length check follows the required check, each name gets a regex check after its required check, and Department becomes Role.
-- The `#firstName` / `#lastName` keypress filters are OneMasaito's own — they already block anything that is not a letter or a space, so the regex only matters for pasted text and for the server.
-- `UpdatePassword` / `ChangePassword` → admin reset; the length check is inserted before the match check.
+- ⚠️ **DEVIATION (2026-09-24)** — **there is no validation chain in this file any more.** Each handler opens with one guard — `if ($scope.AccountForm.$invalid) { return; }` — and every presence/format rule, with its message, lives on the form in § 9.4. OneMasaito's sequential `if`/`growl.error` ladder (and the `!x` shorthand that replaced its `== "" || == null`) is gone, along with the `namePattern` constant and the two `.trim()` locals: `ngTrim` already trims text inputs, and `[Required]` trims before testing on the server.
+- `NewAccount` initialises **every** bound field (`Username`, `Password`, `FirstName`, `LastName`, `Role`) instead of just `Role`, and `EditAccount` sets `Password` to `null` after its `angular.copy`. This is not tidiness — it is required. A control whose validator failed parks `$modelValue` at `undefined`, so assigning a model that simply *omits* the property is not a change, `ngModel`'s watch never fires, `$render()` never runs, and the rejected text stays in the input while the model is empty. Found by testing on 2026-09-24: type a 51-character first name, close the modal, reopen it — the old text was still there. `null` rather than `""` for `Password` because `[StringLength(255, MinimumLength = 6)]` skips `null` but *fails* an empty string, which would break every Edit save.
+- `ResetForm(form)` calls `$setPristine()` (which also clears `$submitted`) and `$setUntouched()`. Every handler that opens a modal calls it, because these modals are server-rendered once and reused — without it, reopening one shows the previous attempt's red fields. The handlers that blank a password after a *server* rejection call it too, so the cleared fields do not immediately read as errors.
+- The Confirm-matches-New rule is the one cross-field check. It has no built-in AngularJS validator, so the modal shows it with a plain expression (`vm.Change.ConfirmPassword && vm.Change.ConfirmPassword !== vm.Change.NewPassword`) and the handler re-tests it beside `$invalid`, since the form's own validity does not cover it. `[Compare]` and `sp_UpdateUserPassword` are the nets behind it.
+- Where OneMasaito's `Save` chain went: Username → Password → First Name → Last Name → Department is now the field order in the modal markup, each rule an attribute on its input. The create-only password rules are `ng-required="vm.ModalHeader === 'New'"` (AngularJS's `minlength` passes on empty values, so the hidden field on Edit never blocks a save), and Department is Role.
+- The `#firstName` / `#lastName` keypress filters are OneMasaito's own — they block anything that is not a letter or a space as it is typed. **They have been commented out since 2026-09-22** and are left in the file as a `/* … */` block; `ng-pattern` on the two inputs now states the same rule and says so under the field. Note **`ngTrim` defaults to `true` on `input[type=text]`**, so AngularJS trims what it writes into `vm.Modal` — a field holding only spaces arrives as `""` and fails `required` — and `[Required]` trims before testing on the server, which is why no `.trim()` call is needed on either side. (`input[type=password]` never trims, by design.) Uncommenting the block restores the typing filter; nothing depends on it, and while it is inactive nothing in the app calls jQuery at all (§ 7.4).
+- The `$http` success argument is named `response`, so the body is `response.data`. OneMasaito names it `data` and writes `data.data`; the rename is cosmetic and was applied throughout this file on 2026-09-22 (`App.js` still uses OneMasaito's name).
+- `UpdatePassword` / `ChangePassword` → admin reset. `UpdatePassword` also blanks the two password fields it copied from the grid row and re-arms the form before showing the modal.
 - `UpdateStatus` / `SaveStatus` → the activate/deactivate modal; `vm.Status.ConfirmPassword` is the **admin's own** password (see § 5.2).
 - `angular.copy(value)` instead of OneMasaito's `vm.Modal = value` — a cancelled edit no longer leaves half-typed values in the grid row.
 
@@ -2083,7 +2232,15 @@ How each piece maps to OneMasaito:
 
 ### 9.4 `Views/Settings/UserAccounts.cshtml`
 
-One page: the grid, and three modals. OneMasaito's page has five modals; *User Access* and *Report Access* have no tables here. Each modal's body + footer is wrapped in a `<form ng-submit="…" autocomplete="off" novalidate>` (`Save()`, `ChangePassword()`, `SaveStatus()`) and its Save button is `type="submit"`, so Enter in any field saves — OneMasaito uses `type="button"` + `ng-click` and no form element. The header cell holds the "+" button and an *Active | Inactive | All* `btn-group-sm` (selected segment carries `active`, bound to `vm.StatusFilter`); the row loop is `filter: main.SearchBox | filter: StatusMatch`.
+One page: the grid, and three modals. OneMasaito's page has five modals; *User Access* and *Report Access* have no tables here. Each modal's body + footer is wrapped in a **named** `<form name="…" ng-submit="…" autocomplete="off" novalidate>` (`AccountForm`/`Save()`, `ChangePasswordForm`/`ChangePassword()`, `StatusForm`/`SaveStatus()`) and its Save button is `type="submit"`, so Enter in any field saves — OneMasaito uses `type="button"` + `ng-click` and no form element.
+
+⚠️ **DEVIATION (2026-09-24)** — the forms validate. The markup is the AngularJS 1.8 Forms guide's own pattern: `name` on every input, the rule as an attribute (`required`, `ng-required`, `ng-pattern`, `ng-minlength`, `ng-maxlength`), and one `<div class="invalid-feedback d-block">` per error key, all wrapped in a reveal gate of `Form.$submitted || Form.Field.$touched`. Naming a form publishes its `FormController` on the scope, which is how § 9.3's handlers reach `$scope.AccountForm`. Two mechanics to keep in mind:
+
+- `d-block` is needed because Bootstrap 5 only reveals `.invalid-feedback` beside an `.is-invalid` sibling, and visibility here comes from `ng-show`.
+- **Each message wrapper carries `class="field-feedback"`, and `Site.css` keeps that row in the layout while it is hidden** (`display: block !important; visibility: hidden`). Without it the form has a genuine input bug, found by testing on 2026-09-24: type into the last field, press **Save** once, and nothing happens. Blurring the field sets `$touched`, which reveals that field's message, which pushes the Save button ~25px down *between mousedown and mouseup* — and a browser only fires `click` when both land on the same element. The press is swallowed and the user has to click twice. Reserving the row removes the shift.
+- `ng-maxlength`, not plain `maxlength` — the HTML attribute blocks typing and truncates a paste silently, which would make the 50-character rule invisible and impossible to mirror against `[StringLength(50)]`.
+
+The red border needs no `ng-class` on any input: AngularJS puts `ng-invalid`/`ng-touched` on the controls and `ng-submitted` on the form, and one rule in `Site.css` (§ 7.3) keys off those classes. The header cell holds the "+" button and an *Active | Inactive | All* `btn-group-sm` (selected segment carries `active`, bound to `vm.StatusFilter`); the row loop is `filter: main.SearchBox | filter: StatusMatch`.
 
 ```cshtml
 @{
@@ -2154,31 +2311,52 @@ One page: the grid, and three modals. OneMasaito's page has five modals; *User A
                     <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
                 </div>
 
-                <form ng-submit="Save()" autocomplete="off" novalidate>
+                <form name="AccountForm" ng-submit="Save()" autocomplete="off" novalidate>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Username</label>
-                        <input type="text" class="form-control" ng-model="vm.Modal.Username" ng-disabled="vm.ModalHeader === 'Edit'" />
+                        <input type="text" class="form-control" name="Username" ng-model="vm.Modal.Username" ng-disabled="vm.ModalHeader === 'Edit'" required ng-maxlength="50" />
+                        <div class="field-feedback" ng-show="AccountForm.$submitted || AccountForm.Username.$touched">
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.Username.$error.required">Please input Username</div>
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.Username.$error.maxlength">Username is too long (maximum 50)</div>
+                        </div>
                     </div>
 
                     <div class="mb-3" ng-show="vm.ModalHeader === 'New'">
                         <label class="form-label">Password</label>
-                        <input type="password" class="form-control" ng-model="vm.Modal.Password" />
+                        <input type="password" class="form-control" name="Password" ng-model="vm.Modal.Password" ng-required="vm.ModalHeader === 'New'" ng-minlength="6" ng-maxlength="255" />
+                        <div class="field-feedback" ng-show="AccountForm.$submitted || AccountForm.Password.$touched">
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.Password.$error.required">Please input Password</div>
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.Password.$error.minlength">Password must be at least 6 characters</div>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">First Name</label>
-                        <input type="text" class="form-control" id="firstName" ng-model="vm.Modal.FirstName" />
+                        <input type="text" class="form-control" id="firstName" name="FirstName" ng-model="vm.Modal.FirstName" required ng-pattern="/^[a-zA-Z ]+$/" ng-maxlength="50" />
+                        <div class="field-feedback" ng-show="AccountForm.$submitted || AccountForm.FirstName.$touched">
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.FirstName.$error.required">Please input First Name</div>
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.FirstName.$error.pattern">First Name must contain letters only</div>
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.FirstName.$error.maxlength">First Name is too long (maximum 50)</div>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Last Name</label>
-                        <input type="text" class="form-control" id="lastName" ng-model="vm.Modal.LastName" />
+                        <input type="text" class="form-control" id="lastName" name="LastName" ng-model="vm.Modal.LastName" required ng-pattern="/^[a-zA-Z ]+$/" ng-maxlength="50" />
+                        <div class="field-feedback" ng-show="AccountForm.$submitted || AccountForm.LastName.$touched">
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.LastName.$error.required">Please input Last Name</div>
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.LastName.$error.pattern">Last Name must contain letters only</div>
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.LastName.$error.maxlength">Last Name is too long (maximum 50)</div>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Role</label>
-                        <select class="form-select" ng-model="vm.Modal.Role" ng-options="r for r in vm.RoleList"></select>
+                        <select class="form-select" name="Role" ng-model="vm.Modal.Role" ng-options="r for r in vm.RoleList" required></select>
+                        <div class="field-feedback" ng-show="AccountForm.$submitted || AccountForm.Role.$touched">
+                            <div class="invalid-feedback d-block" ng-show="AccountForm.Role.$error.required">Please select Role</div>
+                        </div>
                     </div>
                 </div>
 
@@ -2200,16 +2378,24 @@ One page: the grid, and three modals. OneMasaito's page has five modals; *User A
                     <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
                 </div>
 
-                <form ng-submit="ChangePassword()" autocomplete="off" novalidate>
+                <form name="ChangePasswordForm" ng-submit="ChangePassword()" autocomplete="off" novalidate>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">New Password</label>
-                        <input type="password" class="form-control" ng-model="vm.Change.NewPassword" />
+                        <input type="password" class="form-control" name="NewPassword" ng-model="vm.Change.NewPassword" required ng-minlength="6" ng-maxlength="255" />
+                        <div class="field-feedback" ng-show="ChangePasswordForm.$submitted || ChangePasswordForm.NewPassword.$touched">
+                            <div class="invalid-feedback d-block" ng-show="ChangePasswordForm.NewPassword.$error.required">Please input New Password</div>
+                            <div class="invalid-feedback d-block" ng-show="ChangePasswordForm.NewPassword.$error.minlength">Password must be at least 6 characters</div>
+                        </div>
                     </div>
 
                     <div class="mb-3">
                         <label class="form-label">Confirm Password</label>
-                        <input type="password" class="form-control" ng-model="vm.Change.ConfirmPassword" />
+                        <input type="password" class="form-control" name="ConfirmPassword" ng-model="vm.Change.ConfirmPassword" required />
+                        <div class="field-feedback" ng-show="ChangePasswordForm.$submitted || ChangePasswordForm.ConfirmPassword.$touched">
+                            <div class="invalid-feedback d-block" ng-show="ChangePasswordForm.ConfirmPassword.$error.required">Please input Confirm Password</div>
+                            <div class="invalid-feedback d-block" ng-show="vm.Change.ConfirmPassword && vm.Change.ConfirmPassword !== vm.Change.NewPassword">Password Not Match!</div>
+                        </div>
                     </div>
                 </div>
 
@@ -2232,12 +2418,15 @@ One page: the grid, and three modals. OneMasaito's page has five modals; *User A
                     <button type="button" class="btn-close" data-coreui-dismiss="modal" aria-label="Close"></button>
                 </div>
 
-                <form ng-submit="SaveStatus()" autocomplete="off" novalidate>
+                <form name="StatusForm" ng-submit="SaveStatus()" autocomplete="off" novalidate>
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Confirm Password</label>
-                        <input type="password" class="form-control" ng-model="vm.Status.ConfirmPassword" />
+                        <input type="password" class="form-control" name="StatusPassword" ng-model="vm.Status.ConfirmPassword" required />
                         <div class="form-text">Enter <b>your own</b> password to confirm this change.</div>
+                        <div class="field-feedback" ng-show="StatusForm.$submitted || StatusForm.StatusPassword.$touched">
+                            <div class="invalid-feedback d-block" ng-show="StatusForm.StatusPassword.$error.required">Please input Password to proceed</div>
+                        </div>
                     </div>
                 </div>
 
@@ -2288,8 +2477,8 @@ Run every step in order on a fresh browser session. The **expected** column is t
 | 7 | **+** → Username `msmith`, Password `123456`, First `Mary Ann`, Last `Smith`, Role `manager`. | `Successfully Saved`; new row, Role `manager`. |
 | 8 | Edit `msmith` → change Role to `user`, Save. | `Successfully Saved`; Role column shows `user`. |
 | 9 | Edit `msmith` → change First Name to `John`, Last Name to `Doe`, Save. | Growl: `An account for this First Name and Last Name already exists.` (from `sp_UpdateUser`). |
-| 10 | Reset Password on `msmith` → New `abc`, Confirm `abc`. | Growl: `Password must be at least 6 characters`. |
-| 11 | Reset Password on `msmith` → New `secret1`, Confirm `secret2`. | Growl: `Password Not Match!` |
+| 10 | Reset Password on `msmith` → New `abc`, Confirm `abc`. | **Under the New Password field**: `Password must be at least 6 characters`, and the input turns red. No growl — since 2026-09-24 format messages are inline and a growl always means the server spoke. |
+| 11 | Reset Password on `msmith` → New `secret1`, Confirm `secret2`. | Under the Confirm field: `Password Not Match!` (inline, as above). |
 | 12 | Reset Password on `msmith` → New `secret1`, Confirm `secret1`. | `Password Successfully Changed`. |
 | 13 | Deactivate `msmith` → Confirm Password `wrong`. | Growl: `Wrong Password!` |
 | 14 | Deactivate **`admin`** (your own row) → Confirm Password `admin123`. | Growl: `You cannot deactivate your own account.` (from `sp_DeleteUser`); admin stays Active. |
@@ -2302,7 +2491,17 @@ Run every step in order on a fresh browser session. The **expected** column is t
 | 21 | Change Password → Current `secret1`, New `secret1`, Confirm `secret1`. | Growl: `New password must be different from the current password.` |
 | 22 | Change Password → Current `secret1`, New `secret2`, Confirm `secret2`. | `Password Successfully Changed`; log out; `msmith` / `secret2` logs in. |
 | 23 | Log out. Open `/Settings/UserAccounts` directly. | Redirect to `/Home/Login`. |
-| 24 | Header → Theme → Dark. Reload. | Page stays dark (persisted in `localStorage`). |
+| 24 | Header → the contrast icon (the theme dropdown) → Dark. Reload. | Page stays dark (persisted in `localStorage`). The header icon does **not** change with the choice — see `COREUI_GUIDE.md` § 9. |
+| 25 | While logged in, type `/Home/Login` in the address bar. | Redirect to `/Home/Index` — the GET `Login` action's `CurrentUser != null` check (§ 6.1). |
+| 26 | **+** → First Name `  John  ` (leading and trailing spaces), everything else valid. | `Successfully Saved`; the row stores `John`. AngularJS trims it before `Save()` ever runs — `ngTrim` defaults to `true` on `input[type=text]` — so the padding never reaches `vm.Modal` (§ 9.3). A name of *only* spaces arrives as `""` and is rejected with `Please input First Name`. |
+| 27 | **+** → press **Save** with every field empty. | No growl. Red borders, and under each field: `Please input Username`, `Please input Password`, `Please input First Name`, `Please input Last Name`. Nothing is posted (§ 9.3's `$invalid` guard). |
+| 28 | Dismiss that modal, then press **+** again. | A clean form: no red borders, no messages. `ResetForm` calls `$setPristine()` (which clears `$submitted`) and `$setUntouched()`. |
+| 29 | **+** → First Name of 51 letters. | Under the field: `First Name is too long (maximum 50)` — the mirror of `[StringLength(50)]` and of `nvarchar(50)` in the schema. |
+| 30 | Header → Change Password → leave **Current Password** empty, fill the other two correctly, Save. | Under the field: `Please input Current Password`. New on 2026-09-24; this modal had no check on that field before. |
+| 31 | Log out. On the login card press **Enter** with both fields empty. | `Please input Username` and `Please input Password` under the inputs; no request is sent. Before 2026-09-24 this posted and returned *Invalid Username or Password!!* |
+| 32 | In DevTools: `fetch('/Settings/SaveNewAccount', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{"account":{"Username":""}}' }).then(r => r.json()).then(console.log)` | `{ message: "Invalid payload" }` — the DataAnnotations net answering a client that bypassed the form. It never explains what was wrong, by design. |
+| 33 | **+** → First Name `Aaaa…` (51 letters) → **Save** → dismiss the modal → **+** again. | The field is empty. Before the 2026-09-24 fix the rejected text was still sitting there while `vm.Modal` was empty (§ 9.3). |
+| 34 | **+** → type into First Name → click **Save** exactly **once**. | The form submits on that one click and the messages appear. Before the 2026-09-24 fix the first press was swallowed: blurring the field revealed its message and moved the button between mousedown and mouseup (§ 9.4). |
 
 🔍 **GIT CHECKPOINT 10**
 
@@ -2342,4 +2541,4 @@ The conversion is complete. `docs/ARCHITECTURE.md` is the reference from here on
 | Modal closes but a dark backdrop stays on the page. | The page navigated (`window.location`) while a modal was open. | Call `HideModal(...)` before redirecting (as `Logout()` does). |
 | Sidebar group *Settings* never appears for admin. | `main.CurrentUser.Role` is not `'admin'` — check `/Home/GetCurrentUser` output; the DB value is case-sensitive in the Angular comparison. | Store roles in lowercase (the `CHK_UserRole` constraint only allows lowercase anyway). |
 | `Server Error in '/' Application` with `Padding is invalid and cannot be removed` after changing `Web.config`. | The `.ASPXAUTH` cookie was encrypted under a different machine key (config change, different project). | Delete the site's cookies in the browser. |
-| The keypress filter on First/Last Name does not work, but the regex message appears on Save. | jQuery not loaded before `UserAccounts.js`, or the inputs' `id` attributes changed. | § 7.4 order; ids `firstName` / `lastName`. |
+| The keypress filter on First/Last Name does not work, but the regex message appears on Save. | Expected since 2026-09-22 — both `keypress` blocks in `UserAccounts.js` are commented out and `Save()` validates instead. If you uncommented them and they still do nothing: jQuery not loaded before `UserAccounts.js`, or the inputs' `id` attributes changed. | § 9.3; then § 7.4 order and the ids `firstName` / `lastName`. |

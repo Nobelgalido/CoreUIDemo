@@ -66,7 +66,7 @@ Which pages need JavaScript: only chip input (`coreui.ChipInput`) and the dist's
 </div>
 ```
 
-The `id="firstName"` is there for the one piece of jQuery the page keeps — OneMasaito's letters-only keypress filter, which CoreUIDemo carries over unchanged (`App/Controller/UserAccounts.js` lines 85–100; full file in [`../BUILD_GUIDE.md` § 9.3](../BUILD_GUIDE.md#93-appcontrolleruseraccountsjs)):
+The `id="firstName"` is there for OneMasaito's letters-only keypress filter, the one piece of jQuery the page inherited. **It is commented out since 2026-09-22** — the `/* … */` block at `App/Controller/UserAccounts.js` lines 92–107 (full file in [`../BUILD_GUIDE.md` § 9.3](../BUILD_GUIDE.md#93-appcontrolleruseraccountsjs)) — so the ids are inert today and nothing in the app calls jQuery at all. Uncommenting the block is all it takes to bring it back:
 
 **`App/Controller/UserAccounts.js`**
 ```js
@@ -79,7 +79,7 @@ The `id="firstName"` is there for the one piece of jQuery the page keeps — One
         });
 ```
 
-It runs once when the controller is constructed, which works because the modal's inputs are in the server-rendered view from the start (not inside an `ng-if` or `ng-repeat`). The same rule is enforced again in `Save()` with `namePattern.test(...)` and on the server, so the filter is a convenience, not the validation.
+It ran once when the controller was constructed, which works because the modal's inputs are in the server-rendered view from the start (not inside an `ng-if` or `ng-repeat`). The same rule is enforced in `Save()` with `namePattern.test(...)` — on a trimmed copy of each name since 2026-09-22 — and again on the server, which is why the filter could go without loosening anything: it was a typing convenience, never the validation.
 
 **5. Gotchas.** `ng-model` on a `type="file"` input does nothing — AngularJS 1.8 has no file binding; read `document.getElementById(id).files` in the controller when you need the file, and post it with `FormData`, not the JSON `$http` call the rest of the app uses. `form-control-plaintext` with `ng-model` still writes to the model if the `readonly` attribute is forgotten; keep both.
 
@@ -186,7 +186,7 @@ It runs once when the controller is constructed, which works because the modal's
 <label class="btn btn-outline-secondary" for="showInactive">Show inactive</label>
 ```
 
-`vm.Modal.IsActive` is the real `bool` on `UserModel`, so the switch posts `true` / `false` with no conversion — but the switch itself is not in the real `#AccountModal`. `sp_UpdateUser` (called from `Services/UserService.cs` ~line 177: `db.sp_UpdateUser((int)_account.ID, _account.Username, _account.FirstName, _account.LastName, currentPassword, _role, _account.IsActive)`) does accept `IsActive`, so a switch here would technically save; but the real page keeps status changes on the grid's own buttons, which route through `AdminUpdateStatus` and require the admin's password to confirm before a status flips. A switch inside the save modal would let `IsActive` change alongside every other edit with no password confirmation, bypassing that flow. For a source that stores `"Y"` / `"N"` instead, `ng-true-value="'Y'" ng-false-value="'N'"` on the checkbox does the mapping (note the inner quotes — the attribute takes an expression). `vm.ShowInactive` is an illustrative page flag: `ng-repeat="acc in vm.AccountList | filter: (vm.ShowInactive ? '' : { IsActive: true })"` would use it.
+`vm.Modal.IsActive` is the real `bool` on `UserModel`, so the switch posts `true` / `false` with no conversion — but the switch itself is not in the real `#AccountModal`. `sp_UpdateUser` (called from `Services/UserService.cs` ~line 178: `db.sp_UpdateUser((int)_account.ID, _account.Username, _account.FirstName, _account.LastName, currentPassword, _role, _account.IsActive)`) does accept `IsActive`, so a switch here would technically save; but the real page keeps status changes on the grid's own buttons, which route through `AdminUpdateStatus` and require the admin's password to confirm before a status flips. A switch inside the save modal would let `IsActive` change alongside every other edit with no password confirmation, bypassing that flow. For a source that stores `"Y"` / `"N"` instead, `ng-true-value="'Y'" ng-false-value="'N'"` on the checkbox does the mapping (note the inner quotes — the attribute takes an expression). `vm.ShowInactive` is an illustrative page flag: `ng-repeat="acc in vm.AccountList | filter: (vm.ShowInactive ? '' : { IsActive: true })"` would use it.
 
 **5. Gotchas.** OneMasaito's `ng-checked="true"` next to `ng-model` (`RPTMonitoring/Index.cshtml`) fights the model — `ng-checked` sets the DOM state without updating `vm`, so the box looks ticked while the model is `undefined`. Initialise the model in the controller (`vm.Modal = { Role: "user", IsActive: true }`) instead. Interpolated ids inside `ng-repeat` (`id="role-{{r}}"`) are fine for labels' `for`; two radio groups on one view need different `name`s.
 
@@ -524,7 +524,7 @@ The dist also places a `<label for="…">` as the first child of the box; the co
 
 `needs-validation` has no CSS of its own; it is only the selector this script looks for.
 
-**4. In CoreUIDemo.** The project uses none of the above. Its buttons are `type="button"` with `ng-click`, so no `submit` event ever fires and the dist script would never run; and the forms are `novalidate` (`Login.cshtml` line 33) so the browser stays silent too. Validation is OneMasaito's convention — sequential checks in the controller, one `growl.error` per failure, the first failure stops the chain — exactly as the real `Save()` does (`App/Controller/UserAccounts.js` lines 39–65):
+**4. In CoreUIDemo.** The dist's script is still not used — every form is `novalidate` (`Login.cshtml` line 33) and the `submit` event it listens for is taken by AngularJS's `ng-submit` first, so no `needs-validation` pass ever runs. But since **2026-09-24** the project does validate, with AngularJS's own form controller rather than OneMasaito's `growl.error` chain: the rule is an attribute on the input, the message is a `div` under it, and the controller keeps a single `$invalid` guard. The pattern is the AngularJS 1.8 Forms guide's, and the contract for who owns which message is in [`../superpowers/specs/2026-09-24-dataannotations-angular-validation-design.md`](../superpowers/specs/2026-09-24-dataannotations-angular-validation-design.md):
 
 **`App/Controller/UserAccounts.js`** — the real shape, trimmed
 ```js

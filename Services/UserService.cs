@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Web;
 using System.Data.Entity;
-using System.Text.RegularExpressions;
 using CoreUIDemo.Models;
 using CoreUIDemo.Helpers;
 
@@ -11,9 +10,10 @@ namespace CoreUIDemo.Services
 {
     public class UserService
     {
-        private const string NamePattern = "^[a-zA-Z ]+$";
+        // Format rules live on the models as DataAnnotations and on the AngularJS forms; see
+        // docs/superpowers/specs/2026-09-24-dataannotations-angular-validation-design.md.
+        // These two remain because AdminChangePassword takes a plain string, which no attribute can reach.
         private const int PasswordMinLength = 6;
-        private const string NameMessage = "First Name and Last Name may contain letters and spaces only";
         private const string PasswordMessage = "Password must be at least 6 characters";
 
         public static UserModel ValidateUserLogin(string _username, string _password, out string returnString)
@@ -68,12 +68,6 @@ namespace CoreUIDemo.Services
 
             try
             {
-                if (_pass.NewPassword == null || _pass.NewPassword.Length < PasswordMinLength)
-                {
-                    message = PasswordMessage;
-                    return;
-                }
-
                 using (var db = new loginDemoEntities())
                 {
                     var currentUser = UniversalHelpers.CurrentUser;
@@ -129,19 +123,6 @@ namespace CoreUIDemo.Services
 
             try
             {
-                
-                if (!Regex.IsMatch(_account.FirstName ?? "", NamePattern) || !Regex.IsMatch(_account.LastName ?? "", NamePattern))
-                {
-                    message = NameMessage;
-                    return false;
-                }
-
-                if (_account.Password == null || _account.Password.Length < PasswordMinLength)
-                {
-                    message = PasswordMessage;
-                    return false;
-                }
-
                 using (var db = new loginDemoEntities())
                 {
                     db.sp_InsertUserAccount(_account.Username, _account.Password, _account.FirstName, _account.LastName, true, _role);
@@ -162,12 +143,6 @@ namespace CoreUIDemo.Services
 
             try
             {
-                if (!Regex.IsMatch(_account.FirstName ?? "", NamePattern) || !Regex.IsMatch(_account.LastName ?? "", NamePattern))
-                {
-                    message = NameMessage;
-                    return false;
-                }
-
                 using (var db = new loginDemoEntities())
                 {
                     var currentPassword = db.USERS_ACCOUNTS

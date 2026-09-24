@@ -5,7 +5,7 @@ A learning replica of **OneMasaito's login and user-account module** — the sam
 ## Stack
 
 - .NET Framework 4.7.2 · ASP.NET MVC 5.2.7 · Entity Framework 6.5.1 (Database-First EDMX)
-- AngularJS 1.8.2 (one module per page) · angular-growl-v2 0.7.3 · jQuery 3.7.1
+- AngularJS 1.8.2 (one module per page) · angular-growl-v2 0.7.3 · jQuery 3.7.1 (still bundled, but no app code has called it since the letters-only keypress filters were commented out on 2026-09-22)
 - CoreUI Free Bootstrap Admin Template v5.5.0 (Bootstrap 5, CoreUI Icons Free), hand-vendored
 - SQL Server — one table, one view, four stored procedures (`Database/script.sql`)
 

@@ -58,7 +58,7 @@ No `Areas/`, no DI container, no interfaces, no ViewModels folder, no test proje
 
 ### 3.1 Login
 
-1. Browser at `/Home/Login` (`Login.cshtml`, Angular module `login`). User clicks **Login** or presses Enter → `loginController.TryLogin()`.
+1. Browser at `/Home/Login`. `HomeController.Login()` (GET) renders the view only when `UniversalHelpers.CurrentUser` is `null`; with a live auth cookie it 302s to `/Home/Index` instead, so the card is unreachable while signed in (`Login.cshtml`, Angular module `login`). User clicks **Login** or presses Enter → `loginController.TryLogin()`, which returns immediately if `LoginForm.$invalid` — both inputs are `required`, and their messages render under the fields.
 2. `POST /Home/Login` with JSON `{ username, password }`.
 3. `HomeController.Login(string username, string password)` → `UserService.ValidateUserLogin`:
    - `db.USERS_ACCOUNTS.FirstOrDefault(r => r.USERNAME == username && r.PASSWORD == password)` — plaintext comparison inside the LINQ predicate.
@@ -72,7 +72,7 @@ Logout is the reverse in one step: the header's Logout item opens `#logoutModal`
 
 ### 3.2 Every authenticated page
 
-1. `HomeController.Index()` / `SettingsController.UserAccounts()` read `UniversalHelpers.CurrentUser`; `null` → `RedirectToRoute(Home/Login)`; else `View()`.
+1. `HomeController.Index()` / `SettingsController.UserAccounts()` read `UniversalHelpers.CurrentUser`; `null` → 302 to `/Home/Login`; else `View()`. `Index` writes that redirect as `RedirectToRoute(new { controller = "Home", action = "Login", … })`, `UserAccounts` as `RedirectToAction("Login", "Home")` — same response, two spellings.
 2. `_Layout.cshtml` renders inside `<div ng-controller="mainController as main" ng-init="Init()">`; the whole shell is hidden behind the `.loader` while `main.ItemLoad` is `false`.
 3. `mainController.Init()` → `POST /Home/GetCurrentUser` → `HomeController.GetCurrentUser()` → `UniversalHelpers.CurrentUser`:
    - Reads the `.ASPXAUTH` cookie → `FormsAuthentication.Decrypt` → deserializes `PrincipalSerializedModel` → `new Principal(ticket.Name)` → `HttpContext.Current.User = principal`.
@@ -82,12 +82,13 @@ Logout is the reverse in one step: the header's Logout item opens `#logoutModal`
 
 ### 3.3 Save an account (create or edit)
 
-1. `accountsController.Save()` runs the client-side chain: username required → (create only) password required, ≥ 6 chars → first name required, `/^[a-zA-Z ]+$/` → last name required, regex → role required. Any failure → `growl.error` and stop.
+1. `accountsController.Save()` returns immediately if `AccountForm.$invalid`. The rules are attributes on the inputs — `required`, `ng-required="vm.ModalHeader === 'New'"`, `ng-pattern`, `ng-minlength`, `ng-maxlength` — and each failure renders under its own field once `AccountForm.$submitted || <field>.$touched`. No growl: since 2026-09-24 a growl always means the server spoke. `ngTrim` (default `true` on `input[type=text]`) means a spaces-only name arrives as `""` and fails `required`; `input[type=password]` never trims.
 2. `POST /Settings/SaveNewAccount` with `{ account: UserModel, role }`.
 3. `SettingsController.SaveNewAccount(UserModel account, string role)`:
+   - The model binder has already run `UserModel`'s DataAnnotations and its `IValidatableObject`. `account == null || !ModelState.IsValid` → `{ message: "Invalid payload" }` and nothing else runs. That answer carries no detail on purpose: a client that reached it bypassed the form.
    - `account.ID == 0` → `UserService.CheckUserNameDuplicate` → `"Duplicate Username"` or `UserService.SaveAccount` → server-side name regex + password length → `sp_InsertUserAccount` (which raises on duplicate username / duplicate first+last name).
    - `account.ID != 0` → `UserService.UpdateAccount` → name regex → read current `PASSWORD` → `sp_UpdateUser` (which raises on the same duplicates, excluding this row).
-4. `{ message: "Saved" }` or `{ message: <validation or RAISERROR text> }` (fallback `"Error on Saving"`).
+4. `{ message: "Saved" }` or `{ message: <validation or RAISERROR text> }` (fallback `"Error on Saving"`, or `"Invalid payload"` when the body did not bind).
 5. `PopUpMessage(data)` growls; `Init()` reloads the grid; the modal closes only on `"Saved"`.
 
 ### 3.4 Errors
@@ -100,15 +101,15 @@ Logout is the reverse in one step: the header's Logout item opens `#logoutModal`
 
 | Route | Verb | Request body (JSON) | Response | Auth check |
 |---|---|---|---|---|
-| `/Home/Login` | GET | — | View | none (public page) |
+| `/Home/Login` | GET | — | View, or 302 → `/Home/Index` when a valid cookie is present | none (public page); the redirect is a convenience, not a guard |
 | `/Home/Login` | POST | `{ username, password }` | `{ errorMessage }` — `""` on success | none |
 | `/Home/Logout` | POST | — | `""` or an error string | none |
-| `/Home/ChangePassword` | POST | `{ password: { CurrentPassword, NewPassword, ConfirmPassword } }` | `{ errorMessage }` | **none** — identifies the user from the cookie; an anonymous call fails with a null-reference message |
+| `/Home/ChangePassword` | POST | `{ password: { CurrentPassword, NewPassword, ConfirmPassword } }` | `{ errorMessage }` — `"Invalid payload"` if the model fails its annotations | **none** — identifies the user from the cookie; an anonymous call fails with a null-reference message |
 | `/Home/GetCurrentUser` | POST (GET also allowed) | — | `{ obj: UserModel \| null }` | none |
 | `/Home/Index` | GET | — | View, or 302 → `/Home/Login` | `CurrentUser == null` redirect |
 | `/Settings/UserAccounts` | GET | — | View, or 302 → `/Home/Login` | `CurrentUser == null` redirect — any logged-in user, not only admins |
 | `/Settings/GetAccounts` | POST | — | `{ accountList: UserModel[] }` (no passwords) | **none** |
-| `/Settings/SaveNewAccount` | POST | `{ account: UserModel, role }` | `{ message }` — `"Saved"` on success | **none** |
+| `/Settings/SaveNewAccount` | POST | `{ account: UserModel, role }` | `{ message }` — `"Saved"` on success, `"Invalid payload"` if `account` did not bind | **none** |
 | `/Settings/AdminChangePassword` | POST | `{ account: long, password }` | `{ errorMessage }` | **none** |
 | `/Settings/UpdateStatus` | POST | `{ account: long, password }` — `password` is the **acting admin's own** password | `{ errorMessage }` | **none** beyond the password re-check (which needs a cookie to find "the admin") |
 
@@ -142,15 +143,29 @@ Logout is the reverse in one step: the header's Logout item opens `#logoutModal`
 
 Direct EF `SaveChanges()` (OneMasaito's pattern) is used where no sproc exists: `AdminChangePassword` (set `PASSWORD`) and the re-activate branch of `AdminUpdateStatus` (set `IS_ACTIVE = 1`).
 
-### 5.4 Server-side validation (in `UserService`)
+### 5.4 Validation — three tiers (2026-09-24)
 
-| Rule | Where | Message |
+Each tier has one job, and only two of them speak to the user. Contract: `docs/superpowers/specs/2026-09-24-dataannotations-angular-validation-design.md`.
+
+| Tier | Job | Speaks to the user? |
 |---|---|---|
-| First / Last Name match `^[a-zA-Z ]+$` | `SaveAccount`, `UpdateAccount` | `First Name and Last Name may contain letters and spaces only` |
-| Password length ≥ 6 | `SaveAccount`, `AdminChangePassword`, `ChangePassword` | `Password must be at least 6 characters` |
-| Username not duplicate | `SettingsController.SaveNewAccount` (C#), then the sprocs | `Duplicate Username` / `Username already exists.` |
+| **AngularJS forms** (the views) | presence and format, per field | **Yes** — every message a user can provoke by typing |
+| **DataAnnotations** (`Models/UserModel.cs`) | the same rules, `ErrorMessage` omitted throughout | **No** — an invalid `ModelState` means a client was bypassed; the action answers `"Invalid payload"` |
+| **`UserService` + sprocs** | state rules that need the database | **Yes** — own messages, unchanged |
 
-The same name/password rules run first in the browser (`UserAccounts.js`, `App.js`) with OneMasaito's sequential-`if` + growl style (required checks written as `!x` instead of OneMasaito's `== "" || == null`); the keypress filters on `#firstName` / `#lastName` (OneMasaito's own) block non-letter keys as they are typed.
+Format rules and where each is spelled twice:
+
+| Rule | View attribute | Annotation |
+|---|---|---|
+| Username required, ≤ 50 | `required`, `ng-maxlength="50"` | `[Required]`, `[StringLength(50)]` |
+| Password required on create, ≥ 6 | `ng-required="vm.ModalHeader === 'New'"`, `ng-minlength="6"` | `IValidatableObject` (`ID == 0`), `[StringLength(255, MinimumLength = 6)]` |
+| First / Last required, letters and spaces, ≤ 50 | `required`, `ng-pattern`, `ng-maxlength="50"` | `[Required]`, `[RegularExpression]`, `[StringLength(50)]` |
+| Role required, one of three values | `required` on the `<select>` | `[Required]`, `[RegularExpression("^(user\|manager\|admin)$")]` — mirrors `CHK_UserRole` |
+| Current / New / Confirm password | `required`, `ng-minlength="6"`, inline match expression | `[Required]`, `[StringLength(255, MinimumLength = 6)]`, `[Compare("NewPassword")]` |
+
+Two endpoints sit outside the net because they take primitives: `AdminChangePassword` keeps its own `PasswordMinLength` check in `UserService`, and `UpdateStatus` / `Login` rely on their state checks. The lengths mirror the column widths in `Database/script.sql`, so oversize input is a validation failure rather than a SQL truncation exception.
+
+State rules stay where they were and keep their messages: `Duplicate Username` (`CheckUserNameDuplicate`, then the sprocs), `Wrong Password!` (`AdminUpdateStatus`), and every `RAISERROR` in § 5.3.
 
 ## 6. OneMasaito → CoreUIDemo mapping
 
@@ -172,11 +187,11 @@ The same name/password rules run first in the browser (`UserAccounts.js`, `App.j
 
 ### 6.2 Features
 
-**Kept (behaviour identical):** login with growl errors; Enter-to-login (via `<form ng-submit>` rather than OneMasaito's jQuery `keypress` handler); logout via confirm modal; self-service change password with confirm field; loader until the current user is known; header search box filtering the grid; accounts grid with New / Edit / Reset Password / Activate-Deactivate (same icons and calls, ghost-styled — see *Changed*); Username disabled and Password hidden in Edit mode; letters-only keypress filter on names; admin must re-enter **their own** password to toggle a status; `PopUpMessage` "Successfully Saved" / error growl; 30-minute persistent auth cookie carrying username + password; `UniversalHelpers.CurrentUser` DB lookup per access; `IsInRole → true`; manual `CurrentUser == null` redirects on GET views; JSON actions unguarded.
+**Kept (behaviour identical):** login with growl errors; Enter-to-login (via `<form ng-submit>` rather than OneMasaito's jQuery `keypress` handler); logout via confirm modal; self-service change password with confirm field; loader until the current user is known; header search box filtering the grid; accounts grid with New / Edit / Reset Password / Activate-Deactivate (same icons and calls, ghost-styled — see *Changed*); Username disabled and Password hidden in Edit mode; admin must re-enter **their own** password to toggle a status; `PopUpMessage` "Successfully Saved" / error growl; 30-minute persistent auth cookie carrying username + password; `UniversalHelpers.CurrentUser` DB lookup per access; `IsInRole → true`; manual `CurrentUser == null` redirects on GET views; JSON actions unguarded.
 
 **Dropped (no data or no module):** Department list; User Access modal and `UpdateUserAccess`; Report Access modal, `GetUserReportAccess`, `UpdateReportAccess`; `BuildingPermitDropdown`; `IFCAService` entity/project lists in `GetCurrentUser`; `LotID` / `DocIDForUpload` ticket fields and the two `AccountService` methods that re-issued the cookie for them; `SelectedTransactionModule` / `SelectedDocumentIDForUpload`; Modified By / Modified Date columns; the "Patch Notes" dashboard content; the `#sidebarToggle` jQuery block; DataTables, Font Awesome, Chart.js, moment, jquery-easing, respond, angular-file-upload; the unused `bootstrap` / `bootstrap.less` NuGet packages; Google Fonts.
 
-**Changed:** SB Admin 2 (Bootstrap 4) → CoreUI v5.5.0 (Bootstrap 5) markup and `data-coreui-*` attributes; `$('#x').modal()` → `coreui.Modal` via `ShowModal` / `HideModal`; `fas fa-*` → `cil-*`; `Status` → `IsActive`; `Department` → `Role`; `SaveNewAccount(UserModel, long department)` → `(UserModel, string role)`; `SaveAccount` / `UpdateAccount` gain `out string message` so sproc errors reach the UI; catch blocks use `GetBaseException().Message`; `GetCurrentUser` allows GET; `angular.copy` on edit; modals close only on success; name regex + password length validation (user-requested); growl `ttl` set once per severity in `GrowlConfig.js` instead of on every call, and no growl titles (user-requested, 2026-09-21); a CSS shim in `Site.css` restores growl's Bootstrap 4 look under CoreUI (CoreUI's `.icon` rule and Bootstrap 5's missing `.close` otherwise break it); an *Active | Inactive | All* status filter (default *Active*) beside the "+" button, client-side via `vm.StatusFilter` / `StatusMatch` (user-requested, 2026-09-21); the grid's five action buttons are CoreUI ghost buttons (`btn-ghost-secondary` / `-danger` / `-success`) instead of solid colours, and the `icon-text-white-50` helper is gone (user-requested, 2026-09-21); every modal's body + footer is a `<form ng-submit>` with a `type="submit"` Save button, so Enter saves (OneMasaito: `type="button"` + `ng-click`, no form element); required checks written `!x` instead of `== "" || == null` (user-requested, 2026-09-21).
+**Changed:** SB Admin 2 (Bootstrap 4) → CoreUI v5.5.0 (Bootstrap 5) markup and `data-coreui-*` attributes; `$('#x').modal()` → `coreui.Modal` via `ShowModal` / `HideModal`; `fas fa-*` → `cil-*`; `Status` → `IsActive`; `Department` → `Role`; `SaveNewAccount(UserModel, long department)` → `(UserModel, string role)`; `SaveAccount` / `UpdateAccount` gain `out string message` so sproc errors reach the UI; catch blocks use `GetBaseException().Message`; `GetCurrentUser` allows GET; `angular.copy` on edit; modals close only on success; name regex + password length validation (user-requested); growl `ttl` set once per severity in `GrowlConfig.js` instead of on every call, and no growl titles (user-requested, 2026-09-21); a CSS shim in `Site.css` restores growl's Bootstrap 4 look under CoreUI (CoreUI's `.icon` rule and Bootstrap 5's missing `.close` otherwise break it); an *Active | Inactive | All* status filter (default *Active*) beside the "+" button, client-side via `vm.StatusFilter` / `StatusMatch` (user-requested, 2026-09-21); the grid's five action buttons are CoreUI ghost buttons (`btn-ghost-secondary` / `-danger` / `-success`) instead of solid colours, and the `icon-text-white-50` helper is gone (user-requested, 2026-09-21); every modal's body + footer is a `<form ng-submit>` with a `type="submit"` Save button, so Enter saves (OneMasaito: `type="button"` + `ng-click`, no form element); required checks written `!x` instead of `== "" || == null` (user-requested, 2026-09-21). Hand-edited at the office on **2026-09-22**: the letters-only `keypress` filters on `#firstName` / `#lastName` are commented out and `Save()` trims the two names instead; `Login()` (GET) redirects a signed-in user to `/Home/Index`; `SaveNewAccount` answers `"Invalid payload"` when the body does not bind; `UserAccounts()` redirects with `RedirectToAction`; the sidebar-footer toggler is deleted and the theme toggle shows a static contrast SVG instead of the word *Theme*; the login card loses its `version 1.0.0` line and the page footer reads *© 2026 Management Information System.*; `$http` callbacks in `UserAccounts.js` name their argument `response`. Then on **2026-09-24**, validation was restructured into the three tiers in § 5.4: unmessaged DataAnnotations on `UserModel` / `ChangePasswordModel` as a server-side net (OneMasaito has none), AngularJS form validation as the only source of presence/format messages, rendered inline per field instead of growled, `ModelState.IsValid` guards on the two actions that bind a complex type, and the format checks deleted from `UserService` except `AdminChangePassword`'s. Three rules exist that did not before: Current Password required, and the two login fields. Browser testing the same day surfaced two defects in that work, both fixed: modal fields kept rejected text after a close/reopen (a control whose validator failed parks `$modelValue` at `undefined`, so a model that omits the property is not a change and never re-renders — the open handlers now initialise every field explicitly), and the first **Save** press after typing was swallowed because revealing a message on blur moved the button between mousedown and mouseup (the message row now keeps its space via `.field-feedback`).
 
 ### 6.3 Angular module topology
 
